@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Used model{% endblock %}
+{% block nav_model %}active{% endblock %}
+
+{% block content %}
+<section class="page-head reveal">
+  <h1>The recommender</h1>
+  <p class="hint">How we chose the model behind your recommendations.</p>
+</section>
+
+<section class="prose reveal">
+  <p>
+    Four algorithms were written from scratch and compared with
+    <strong>5-fold cross-validation</strong> on {{ metrics.n_ratings }} ratings, using two
+    standard error metrics — <strong>RMSE</strong> (penalises big mistakes) and
+    <strong>MAE</strong> (average mistake size). Lower is better for both.
+  </p>
+</section>
+
+<section class="metrics-table reveal">
+  <div class="metric-row head"><span>Model</span><span>RMSE</span><span>MAE</span></div>
+  {% for key, r in rows %}
+    <div class="metric-row {% if key == metrics.served %}served{% endif %}">
+      <span class="metric-name">{{ r.name }}{% if key == metrics.served %}<span class="served-tag">in app</span>{% endif %}</span>
+      <span class="metric-val">{{ r.rmse|floatformat:4 }}</span>
+      <span class="metric-val">{{ r.mae|floatformat:4 }}</span>
+    </div>
+  {% endfor %}
+</section>
+
+<section class="prose reveal">
+  <h2>Why this model?</h2>
+  <p>
+    The currently selected engine is <strong>{{ model_name }}</strong>. Interestingly, the
+    simple <em>baseline</em> (just the average rating of a place plus how generously a user
+    rates) often scores the lowest RMSE on this dataset — there is limited collaborative
+    “signal” in a small set of ratings.
+  </p>
+  <p>
+    But the baseline gives <em>every</em> user the same ranking, so it cannot personalise.
+    Since the whole point of the app is recommendations that react to <em>your</em> ratings,
+    we use the best <strong>personalised</strong> model instead. This is a useful reminder
+    that <strong>RMSE measures rating prediction, not ranking quality</strong> — and the two
+    can disagree.
+  </p>
+</section>
+{% endblock %}

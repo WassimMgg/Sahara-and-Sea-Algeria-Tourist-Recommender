@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block nav_about %}active{% endblock %}
+
+{% block content %}
+<section class="page-head reveal">
+  <h1>About this project</h1>
+  <p class="hint">A tourist recommendation system for Algeria.</p>
+</section>
+
+<section class="prose reveal">
+  <p>
+    <strong>Sahara &amp; Sea</strong> recommends Algerian tourist attractions tailored to each
+    visitor's taste. It demonstrates a complete recommender-system pipeline: collecting messy
+    real-world data, cleaning it, comparing several algorithms, and serving the best one through
+    a live web application.
+  </p>
+
+  <h2>How it works</h2>
+  <p>
+    Friends rated 15 attractions, producing a messy ratings file (inconsistent country names,
+    mixed rating formats, missing values, duplicate entries). A cleaning step normalises all of
+    this into a tidy dataset. Four collaborative-filtering models are then evaluated with
+    cross-validation, and the best personalised model is saved and loaded by the backend.
+  </p>
+  <p>
+    When you rate a place, your ratings are stored and fed into the model, which immediately
+    recomputes your recommendations — no retraining needed.
+  </p>
+
+  <h2>Technology</h2>
+  <ul class="tech-list">
+    <li><strong>Backend</strong> — Django, with a SQLite database seeded from the CSV files.</li>
+    <li><strong>Model</strong> — collaborative filtering written from scratch in Python (NumPy).</li>
+    <li><strong>Frontend</strong> — HTML, CSS and JavaScript, responsive and animated.</li>
+  </ul>
+
+  <h2>The catalogue</h2>
+  <p>
+    From the Casbah of Algiers and the Roman ruins of Timgad and Djemila, to the Tassili n'Ajjer
+    plateau and the Hoggar mountains deep in the Sahara — the places span every region of Algeria.
+  </p>
+</section>
+{% endblock %}

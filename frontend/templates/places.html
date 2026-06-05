@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Places{% endblock %}
+{% block nav_places %}active{% endblock %}
+
+{% block content %}
+<section class="page-head reveal">
+  <h1>All places</h1>
+  <p class="hint">Rate the attractions you know — your recommendations update instantly.</p>
+</section>
+
+{% if user.is_authenticated %}
+<section class="band tight">
+  <div class="section-head"><h2>Your recommendations</h2></div>
+  <div class="rec-track" id="recTrack"></div>
+</section>
+{% else %}
+<div class="notice reveal">
+  <a href="{% url 'login' %}">Log in</a> or <a href="{% url 'signup' %}">sign up</a> to rate places and get personalised recommendations.
+</div>
+{% endif %}
+
+<section class="filters reveal">
+  <div class="filter-chips" id="typeFilter">
+    <button class="fchip active" data-type="all">All</button>
+    {% for t in types %}<button class="fchip" data-type="{{ t }}">{{ t }}</button>{% endfor %}
+  </div>
+</section>
+
+<section class="grid" id="grid"></section>
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/places.js' %}"></script>{% endblock %}

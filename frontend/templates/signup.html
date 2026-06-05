@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sign up{% endblock %}
+
+{% block content %}
+<section class="auth-wrap reveal">
+  <div class="auth-card">
+    <h1>Create your account</h1>
+    <p class="hint">It takes a few seconds — then start rating places.</p>
+    <form method="post" action="{% url 'signup' %}" class="auth-form">
+      {% csrf_token %}
+      <label>Username
+        <input type="text" name="username" required autofocus />
+      </label>
+      <label>Email <span class="optional">(optional)</span>
+        <input type="email" name="email" />
+      </label>
+      <label>Password
+        <input type="password" name="password" required />
+      </label>
+      <label>Confirm password
+        <input type="password" name="confirm" required />
+      </label>
+      <button type="submit" class="btn-solid lg full">Sign up</button>
+    </form>
+    <p class="auth-alt">Already have an account? <a href="{% url 'login' %}">Log in</a></p>
+  </div>
+</section>
+{% endblock %}

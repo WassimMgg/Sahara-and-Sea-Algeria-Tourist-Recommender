@@ -1,0 +1,73 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Sahara &amp; Sea{% endblock %} — Discover Algeria</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <nav class="navbar">
+    <a href="{% url 'home' %}" class="brand">
+      <span class="brand-mark">✦</span>
+      <span class="brand-text">Sahara&nbsp;&amp;&nbsp;Sea</span>
+    </a>
+
+    <button class="nav-toggle" id="navToggle" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div class="nav-links" id="navLinks">
+      <a href="{% url 'home' %}" class="{% block nav_home %}{% endblock %}">Home</a>
+      <a href="{% url 'search' %}" class="{% block nav_search %}{% endblock %}">Search</a>
+      <a href="{% url 'places' %}" class="{% block nav_places %}{% endblock %}">Places</a>
+      <a href="{% url 'used_model' %}" class="{% block nav_model %}{% endblock %}">Used model</a>
+      <a href="{% url 'about' %}" class="{% block nav_about %}{% endblock %}">About</a>
+
+      <span class="nav-divider"></span>
+
+      {% if user.is_authenticated %}
+        <span class="nav-user">Hi, {{ user.username }}</span>
+        <form method="post" action="{% url 'logout' %}" class="inline-form">
+          {% csrf_token %}
+          <button type="submit" class="btn-ghost">Logout</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}" class="btn-ghost">Login</a>
+        <a href="{% url 'signup' %}" class="btn-solid">Sign up</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  {% if messages %}
+    <div class="flash-wrap">
+      {% for message in messages %}
+        <div class="flash flash-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <p>Sahara &amp; Sea · A taste-matched guide to Algeria · Tourist recommendation project</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    window.IS_AUTHENTICATED = {% if user.is_authenticated %}true{% else %}false{% endif %};
+    window.LOGIN_URL = "{% url 'login' %}";
+  </script>
+  <script src="{% static 'js/common.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<section class="auth-wrap reveal">
+  <div class="auth-card">
+    <h1>Welcome back</h1>
+    <p class="hint">Log in to rate places and see your recommendations.</p>
+    <form method="post" action="{% url 'login' %}" class="auth-form">
+      {% csrf_token %}
+      <label>Username
+        <input type="text" name="username" required autofocus />
+      </label>
+      <label>Password
+        <input type="password" name="password" required />
+      </label>
+      <button type="submit" class="btn-solid lg full">Log in</button>
+    </form>
+    <p class="auth-alt">New here? <a href="{% url 'signup' %}">Create an account</a></p>
+  </div>
+</section>
+{% endblock %}

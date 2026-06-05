@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Home{% endblock %}
+{% block nav_home %}active{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-inner reveal">
+    <p class="eyebrow">Algeria · from the Mediterranean to the Sahara</p>
+    <h1 class="hero-title">Find the places<br><em>made for you.</em></h1>
+    <p class="hero-sub">
+      Rate a few attractions and our recommender learns your taste — UNESCO ruins,
+      desert plateaus, coastal forts or city gardens.
+    </p>
+    <div class="hero-cta">
+      <a href="{% url 'places' %}" class="btn-solid lg">Start rating places</a>
+      <a href="{% url 'search' %}" class="btn-ghost lg">Search attractions</a>
+    </div>
+  </div>
+  <div class="hero-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
+</section>
+
+<section class="band">
+  <div class="section-head reveal">
+    <h2>Picked for you</h2>
+    <p class="hint">
+      {% if user.is_authenticated %}Based on what you've rated so far.
+      {% else %}Popular right now — <a href="{% url 'login' %}">log in</a> to personalise.{% endif %}
+    </p>
+  </div>
+  <div class="rec-track" id="recTrack">
+    {% for r in recommendations %}
+      <article class="rec-card reveal" style="--d: {{ forloop.counter0 }}">
+        <div class="rec-thumb" data-name="{{ r.name }}" style="background-image:url('{{ r.image_url }}')">
+          <span class="rec-rank">{{ forloop.counter }}</span>
+          <span class="chip">{{ r.place_type }}</span>
+        </div>
+        <div class="rec-body">
+          <h3>{{ r.name }}</h3>
+          <span class="muted">{{ r.city }} · {{ r.region }}</span>
+          <span class="rec-score">predicted {{ r.score }}/5</span>
+          <span class="rec-reason">{{ r.reason }}</span>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="band alt">
+  <div class="how reveal">
+    <div class="how-step"><span class="how-num">1</span><h3>Browse places</h3><p>Explore 15 hand-picked Algerian attractions with photos and descriptions.</p></div>
+    <div class="how-step"><span class="how-num">2</span><h3>Rate what you know</h3><p>Give a 1–5 star rating to places you've visited or like the look of.</p></div>
+    <div class="how-step"><span class="how-num">3</span><h3>Get matched</h3><p>A collaborative-filtering model instantly suggests places you'll love.</p></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/home.js' %}"></script>{% endblock %}
