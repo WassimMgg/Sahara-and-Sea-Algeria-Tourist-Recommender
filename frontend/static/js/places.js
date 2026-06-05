@@ -47,8 +47,23 @@ function initFilter() {
   });
 }
 
+function applyTypeFromURL() {
+  const wanted = new URLSearchParams(location.search).get("type");
+  if (!wanted) return;
+  const chips = document.querySelectorAll(".fchip");
+  for (const c of chips) {
+    if (c.dataset.type.toLowerCase() === wanted.toLowerCase()) {
+      chips.forEach(x => x.classList.remove("active"));
+      c.classList.add("active");
+      state.type = c.dataset.type;
+      break;
+    }
+  }
+}
+
 (async function init() {
   initFilter();
+  applyTypeFromURL();
   await loadMyRatings();
   await Promise.all([loadGrid(), loadRecommendations()]);
 })();

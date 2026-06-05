@@ -27,12 +27,18 @@ cd ..
 python manage.py migrate      # create the tables
 python manage.py seed_db      # load attractions + historical ratings from CSV
 
-# 4. run the app
+# 4. create an admin account for the admin panel
+python manage.py create_admin   # makes admin / admin12345  (change the password!)
+
+# 5. run the app
 python manage.py runserver
 ```
 
 Open **http://127.0.0.1:8000/**. Click **Sign up**, then go to **Places**, rate a few
 attractions, and watch the recommendations update.
+
+The **admin panel** is at **http://127.0.0.1:8000/admin/** — log in with the account
+from step 4 (or your own, via `python manage.py createsuperuser`).
 
 ---
 
@@ -46,6 +52,23 @@ attractions, and watch the recommendations update.
 | **Used model** | the algorithm comparison and why the chosen model is used |
 | **About** | project overview |
 | **Login / Sign up** | account creation and authentication |
+
+## Admin panel
+
+The project includes a full admin panel at **`/admin/`** (Django admin, customised
+for this project). After logging in as a staff user you get:
+
+- a **dashboard** on the home page — total attractions, registered users, historical
+  visitors and ratings, plus top-rated / most-rated attractions and recent app ratings;
+- **Attractions** — list with image thumbnails, rating counts and average score;
+  searchable and filterable by region and type; editable with a live image preview;
+- **Visitors** — the historical raters, filterable by country and gender;
+- **Ratings** — every rating, showing whether it came from an app user or the
+  historical data, filterable by score and source;
+- **Users / Groups** — standard account management.
+
+Staff users also see an **Admin** link in the site navbar. Create an admin with
+`python manage.py create_admin` (or the standard `python manage.py createsuperuser`).
 
 ---
 

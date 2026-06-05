@@ -1,7 +1,11 @@
 from django.urls import path
 from api import views
+from api.admin import admin_site
 
 urlpatterns = [
+    # admin panel
+    path("admin/", admin_site.urls),
+
     # pages
     path("", views.home, name="home"),
     path("places/", views.places, name="places"),

@@ -1,0 +1,85 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<div class="rec-dash">
+
+  <!-- quick actions -->
+  <div class="quick-actions">
+    <a href="{% url 'admin:api_attraction_add' %}">+ Add attraction</a>
+    <a href="{% url 'admin:api_rating_changelist' %}">Manage ratings</a>
+    <a href="{% url 'admin:api_attraction_changelist' %}">Manage attractions</a>
+    <a href="{% url 'admin:auth_user_changelist' %}">Manage users</a>
+    <a href="/" class="go" target="_blank">Open public site ↗</a>
+  </div>
+
+  <!-- stat cards -->
+  <div class="rec-cards">
+    <div class="rec-card"><div class="num">{{ stat_attractions }}</div><div class="lbl">Attractions</div></div>
+    <div class="rec-card"><div class="num">{{ stat_accounts }}</div><div class="lbl">Registered users</div></div>
+    <div class="rec-card"><div class="num">{{ stat_visitors }}</div><div class="lbl">Historical visitors</div></div>
+    <div class="rec-card">
+      <div class="num">{{ stat_ratings_total }}</div><div class="lbl">Total ratings</div>
+      <div class="sub">{{ stat_ratings_app }} from app · {{ stat_ratings_hist }} historical</div>
+    </div>
+  </div>
+
+  <!-- charts -->
+  <div class="rec-cols">
+    <div class="rec-panel">
+      <h3>Rating distribution</h3>
+      <div class="admin-bars">
+        {% for label, count, total in dist_rows %}
+          <div class="bar-row">
+            <span class="bar-lbl">{{ label }}</span>
+            <span class="bar-track"><span class="bar-fill" style="width:{% widthratio count total 100 %}%"></span></span>
+            <span class="bar-val">{{ count }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="rec-panel">
+      <h3>Average score by place type</h3>
+      <div class="admin-bars wide">
+        {% for t, avg, n in type_rows %}
+          <div class="bar-row">
+            <span class="bar-lbl">{{ t }}</span>
+            <span class="bar-track"><span class="bar-fill" style="width:{% widthratio avg 5 100 %}%"></span></span>
+            <span class="bar-val">{{ avg }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- lists -->
+  <div class="rec-cols">
+    <div class="rec-panel">
+      <h3>Top rated</h3>
+      <table>
+        {% for name, avg, n in top_rated %}
+          <tr><td>{{ name }}</td><td>{{ avg }} ★ ({{ n }})</td></tr>
+        {% empty %}<tr><td>No ratings yet</td><td></td></tr>{% endfor %}
+      </table>
+    </div>
+    <div class="rec-panel">
+      <h3>Most rated</h3>
+      <table>
+        {% for name, n in most_rated %}
+          <tr><td>{{ name }}</td><td>{{ n }} ratings</td></tr>
+        {% empty %}<tr><td>No ratings yet</td><td></td></tr>{% endfor %}
+      </table>
+    </div>
+    <div class="rec-panel">
+      <h3>Recent app ratings</h3>
+      <table>
+        {% for r in recent_app_ratings %}
+          <tr><td>{{ r.account.username }} → {{ r.attraction.name }}</td><td>{{ r.rating }} ★</td></tr>
+        {% empty %}<tr><td>No app ratings yet</td><td></td></tr>{% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

@@ -26,7 +26,44 @@ from . import services
 @ensure_csrf_cookie
 def home(request):
     recs = services.recommend_for(request.user, top_n=6)
-    return render(request, "home.html", {"recommendations": recs})
+    attractions = list(Attraction.objects.all())
+
+    def by_id(aid):
+        return next((a for a in attractions if a.id == aid), attractions[0] if attractions else None)
+
+    def wide(url, width=1600):
+        if not url:
+            return url
+        return url.replace("width=1000", f"width={width}")
+
+    # group attractions by place type for the "explore by type" gallery
+    grouped = {}
+    for a in attractions:
+        grouped.setdefault(a.place_type, []).append(a)
+    categories = [
+        {"type": t, "count": len(items), "image_url": items[0].image_url}
+        for t, items in sorted(grouped.items())
+    ]
+
+    hero_main = by_id(2)            # Tassili n'Ajjer (desert)
+    hero_small = [by_id(1), by_id(5)]  # Casbah (city), Tipaza (coast)
+
+    stats = {
+        "attractions": len(attractions),
+        "types": len(grouped),
+        "regions": len({a.region for a in attractions}),
+        "ratings": Rating.objects.filter(visitor__isnull=False).count(),
+    }
+
+    context = {
+        "recommendations": recs,
+        "categories": categories,
+        "hero_main": hero_main,
+        "hero_main_image": wide(hero_main.image_url) if hero_main else "",
+        "hero_small": hero_small,
+        "stats": stats,
+    }
+    return render(request, "home.html", context)
 
 
 @ensure_csrf_cookie

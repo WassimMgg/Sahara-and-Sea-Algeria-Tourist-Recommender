@@ -4,29 +4,57 @@
 {% block nav_home %}active{% endblock %}
 
 {% block content %}
+<!-- ============================ HERO ============================ -->
 <section class="hero">
-  <div class="hero-inner reveal">
-    <p class="eyebrow">Algeria · from the Mediterranean to the Sahara</p>
-    <h1 class="hero-title">Find the places<br><em>made for you.</em></h1>
-    <p class="hero-sub">
-      Rate a few attractions and our recommender learns your taste — UNESCO ruins,
-      desert plateaus, coastal forts or city gardens.
-    </p>
-    <div class="hero-cta">
-      <a href="{% url 'places' %}" class="btn-solid lg">Start rating places</a>
-      <a href="{% url 'search' %}" class="btn-ghost lg">Search attractions</a>
+  <div class="hero-card">
+    <div class="hero-media" data-name="{{ hero_main.name }}"
+         style="background-image:url('{{ hero_main_image }}')"></div>
+    <div class="hero-veil"></div>
+
+    <div class="hero-content">
+      <p class="eyebrow light">Algeria · from the Mediterranean to the Sahara</p>
+      <h1 class="hero-title">Find the places<br><em>made for you.</em></h1>
+      <p class="hero-sub">
+        Rate a handful of attractions and our recommender learns your taste —
+        UNESCO ruins, desert plateaus, coastal forts and hidden city gardens.
+      </p>
+      <div class="hero-cta">
+        <a href="{% url 'places' %}" class="btn-solid lg">Start rating places</a>
+        <a href="{% url 'search' %}" class="btn-line lg">Explore the map of places</a>
+      </div>
+    </div>
+
+    <!-- floating collage -->
+    <div class="hero-collage" aria-hidden="true">
+      {% for h in hero_small %}
+        <figure class="polaroid p{{ forloop.counter }}" data-name="{{ h.name }}"
+                style="background-image:url('{{ h.image_url }}')">
+          <figcaption>{{ h.name }}</figcaption>
+        </figure>
+      {% endfor %}
     </div>
   </div>
-  <div class="hero-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <!-- overlapping stat ribbon -->
+  <div class="stat-ribbon reveal">
+    <div class="stat"><span class="stat-n" data-count="{{ stats.attractions }}">0</span><span class="stat-l">Attractions</span></div>
+    <div class="stat"><span class="stat-n" data-count="{{ stats.regions }}">0</span><span class="stat-l">Regions</span></div>
+    <div class="stat"><span class="stat-n" data-count="{{ stats.types }}">0</span><span class="stat-l">Types of place</span></div>
+    <div class="stat"><span class="stat-n" data-count="{{ stats.ratings }}">0</span><span class="stat-l">Ratings learned</span></div>
+  </div>
 </section>
 
+<!-- ====================== PICKED FOR YOU ======================= -->
 <section class="band">
-  <div class="section-head reveal">
-    <h2>Picked for you</h2>
-    <p class="hint">
-      {% if user.is_authenticated %}Based on what you've rated so far.
-      {% else %}Popular right now — <a href="{% url 'login' %}">log in</a> to personalise.{% endif %}
-    </p>
+  <div class="section-head reveal row">
+    <div>
+      <h2>Picked for you</h2>
+      <p class="hint">
+        {% if user.is_authenticated %}Based on what you've rated so far.
+        {% else %}Popular right now — <a href="{% url 'login' %}">log in</a> to personalise.{% endif %}
+      </p>
+    </div>
+    <a href="{% url 'places' %}" class="see-all">Rate more →</a>
   </div>
   <div class="rec-track" id="recTrack">
     {% for r in recommendations %}
@@ -46,11 +74,49 @@
   </div>
 </section>
 
+<!-- ====================== EXPLORE BY TYPE ====================== -->
 <section class="band alt">
-  <div class="how reveal">
-    <div class="how-step"><span class="how-num">1</span><h3>Browse places</h3><p>Explore 15 hand-picked Algerian attractions with photos and descriptions.</p></div>
-    <div class="how-step"><span class="how-num">2</span><h3>Rate what you know</h3><p>Give a 1–5 star rating to places you've visited or like the look of.</p></div>
-    <div class="how-step"><span class="how-num">3</span><h3>Get matched</h3><p>A collaborative-filtering model instantly suggests places you'll love.</p></div>
+  <div class="section-head reveal">
+    <h2>Explore by type</h2>
+    <p class="hint">From Roman ruins to Saharan peaks — pick a mood.</p>
+  </div>
+  <div class="cat-grid">
+    {% for c in categories %}
+      <a href="{% url 'places' %}?type={{ c.type|urlencode }}" class="cat-tile reveal" style="--d: {{ forloop.counter0 }}">
+        <div class="cat-media" data-name="{{ c.type }}" style="background-image:url('{{ c.image_url }}')"></div>
+        <div class="cat-veil"></div>
+        <div class="cat-label">
+          <span class="cat-name">{{ c.type }}</span>
+          <span class="cat-count">{{ c.count }} place{{ c.count|pluralize }}</span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ======================= HOW IT WORKS ======================== -->
+<section class="band">
+  <div class="section-head reveal"><h2>How it works</h2></div>
+  <div class="steps reveal">
+    <div class="step"><span class="step-num">1</span><h3>Browse places</h3><p>Explore {{ stats.attractions }} hand-picked Algerian attractions with photos and stories.</p></div>
+    <div class="step"><span class="step-num">2</span><h3>Rate what you know</h3><p>Give a 1–5 star rating to places you've visited or like the look of.</p></div>
+    <div class="step"><span class="step-num">3</span><h3>Get matched</h3><p>A collaborative-filtering model instantly suggests places you'll love.</p></div>
+  </div>
+</section>
+
+<!-- ========================= CTA BAND ========================== -->
+<section class="cta-band reveal">
+  <div class="cta-inner">
+    <h2>Ready to find your next trip?</h2>
+    <p>It takes two minutes — rate a few places and let the model do the rest.</p>
+    <div class="hero-cta">
+      {% if user.is_authenticated %}
+        <a href="{% url 'places' %}" class="btn-solid lg">Browse &amp; rate places</a>
+      {% else %}
+        <a href="{% url 'signup' %}" class="btn-solid lg">Create an account</a>
+        <a href="{% url 'places' %}" class="btn-line lg">Browse places first</a>
+      {% endif %}
+    </div>
   </div>
 </section>
 {% endblock %}
