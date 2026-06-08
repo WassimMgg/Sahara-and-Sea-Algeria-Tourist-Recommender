@@ -184,3 +184,5 @@ def api_rate(request):
     )
     recs = services.recommend_for(request.user, top_n=int(payload.get("n", 6)))
     return JsonResponse({"status": "ok", "recommendations": recs})
+
+
