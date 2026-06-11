@@ -229,3 +229,30 @@ body.login #header { display:none; }
   #container { margin-left:0; }
   #content.colMS { grid-template-columns:1fr; }
 }
+
+/* ====================== RECOMMENDER CONTROL PAGE =================== */
+.algo-grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); }
+.algo-card {
+  display:flex; flex-direction:column; gap:7px; position:relative; cursor:pointer;
+  background:var(--surface); border:1.5px solid var(--line); border-radius:12px;
+  padding:15px 16px 13px; transition:border-color .15s, box-shadow .15s, transform .15s;
+}
+.algo-card:hover { border-color:#cdd2db; transform:translateY(-1px); box-shadow:var(--shadow); }
+.algo-card.is-active { border-color:var(--accent-2); box-shadow:0 0 0 3px rgba(31,111,107,.12); }
+.algo-card input { position:absolute; opacity:0; pointer-events:none; }
+.algo-card:has(input:checked) { border-color:var(--accent-2); box-shadow:0 0 0 3px rgba(31,111,107,.12); }
+.algo-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.algo-name { font-weight:700; font-size:14.5px; color:var(--ink); }
+.algo-badge {
+  font-size:10px; font-weight:700; letter-spacing:.08em; padding:2px 8px;
+  border-radius:999px; background:#eef0f3; color:#6b7280; text-transform:uppercase;
+}
+.algo-badge.live { background:var(--accent-2); color:#fff; }
+.algo-family { font-size:11.5px; color:#9aa1ad; text-transform:uppercase; letter-spacing:.05em; }
+.algo-blurb { font-size:12.8px; color:var(--muted); line-height:1.45; min-height:36px; }
+.algo-meter { display:flex; flex-direction:column; gap:5px; margin-top:2px; }
+.algo-nums { font-size:11.5px; color:#6b7280; font-variant-numeric:tabular-nums; }
+.algo-form .button { border-radius:10px; }
+
+/* dashboard animation helpers */
+.rec-card .num[data-count] { min-width:1.5em; display:inline-block; }

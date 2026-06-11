@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+myenv/
+venv/
+env/
+.venv/
+.env/
+
+# Django
+*.sqlite3
+*.log
+local_settings.py
+/staticfiles/
+/mediafiles/
+media/
+
+# ML artifacts
+ml/model.pkl
+ml/ratings_clean.csv
+ml/metrics.json
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.npz
+*.npy
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Coverage / testing
+.coverage
+htmlcov/
+.pytest_cache/

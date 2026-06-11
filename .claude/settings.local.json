@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Mgg\\\\Desktop\\\\Academics\\\\1M-ICST\\\\S2\\\\Recommender_Systems\\\\Project\\\\tourist-recommender\" -Recurse -Depth 2)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)"
+    ]
+  }
+}

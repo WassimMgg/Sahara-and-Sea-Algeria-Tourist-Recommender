@@ -7,9 +7,7 @@ Two kinds of views:
 """
 
 import json
-from pathlib import Path
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
@@ -76,15 +74,12 @@ def search(request):
 
 
 def used_model(request):
-    metrics_path = Path(settings.ML_DIR) / "metrics.json"
-    metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
-    rows = []
-    if metrics.get("results"):
-        rows = sorted(metrics["results"].items(), key=lambda kv: kv[1]["rmse"])
+    algos = services.available_algorithms()
+    active = next(a for a in algos if a["active"])
     return render(request, "model.html", {
-        "model_name": services.model_name(),
-        "metrics": metrics,
-        "rows": rows,
+        "algorithms": sorted(algos, key=lambda a: a["rmse"]),
+        "active": active,
+        "info": services.training_info(),
     })
 
 

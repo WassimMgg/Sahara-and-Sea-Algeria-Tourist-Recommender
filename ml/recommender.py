@@ -1,304 +1,435 @@
 """
-recommender.py
-==============
-Four collaborative-filtering models, written from scratch with NumPy so the
-project has no heavy/fragile dependencies (works with just numpy + pandas).
+ml/recommender.py
+=================
+Every recommender the course covers, implemented from scratch with NumPy.
 
-Every model implements the same small interface:
+Course mapping
+--------------
+1. NON-PERSONALIZED  (recommendations based on mean calculations)
+     * MeanRecommender      - damped item-mean ranking ("crowd favourites")
+     * BaselineModel        - global mean + user bias + item bias
+2. SIMILARITY CALCULATIONS
+     * cosine similarity            (raw vectors, missing = no contribution)
+     * Pearson correlation          (mean-centered, on co-rated entries only)
+   -> both available for the two collaborative-filtering families below.
+3. PERSONALIZED - USER-USER and ITEM-ITEM collaborative filtering
+     * UserUserCF(similarity="cosine" | "pearson")
+     * ItemItemCF(similarity="cosine" | "pearson")
+4. (bonus) MatrixFactorization - SGD-trained latent factors
 
-    model.fit(ratings_df)                       -> learn from the clean data
-    model.predict(user_id, item_id) -> float    -> predict one rating (used by cross-validation)
-    model.recommend(user_ratings, top_n) -> list of (item_id, score)
-                                                -> rank unseen items for a user.
-                                                   `user_ratings` is a dict {item_id: rating}.
-                                                   This works even for a brand-new user, so the
-                                                   app can refresh recommendations the moment a
-                                                   user rates something (no retraining needed).
-
-The four models are:
-  1. BaselineModel   - global mean + user bias + item bias (the "dumb" baseline)
-  2. ItemBasedCF     - item-item cosine similarity on mean-centered ratings
-  3. UserBasedCF     - user-user cosine similarity on mean-centered ratings
-  4. MatrixFactorization (SVD-style) - latent factors learned by gradient descent
+Every model implements the same interface:
+    fit(df)                                   df: user_id, attraction_id, rating
+    predict(user_id, item_id)                 known training user
+    predict_from_ratings(item_id, ratings)    NEW user: {item_id: rating}
+    recommend(ratings, top_n=5)               -> [(item_id, score), ...]
 """
 
 import numpy as np
 import pandas as pd
 
-RATING_MIN, RATING_MAX = 1.0, 5.0
+K_NEIGHBOURS = 20          # neighbourhood size for the CF models
+DAMPING = 5                # damped-mean strength for the mean recommender
+MIN_CORATED = 2            # min co-rated entries for a Pearson similarity
 
 
-def _clip(x):
-    return float(min(RATING_MAX, max(RATING_MIN, x)))
-
-
-# --------------------------------------------------------------------------- #
-# 1. Baseline: global mean + biases
-# --------------------------------------------------------------------------- #
-class BaselineModel:
-    name = "Baseline (mean + biases)"
-
-    def __init__(self, reg=10.0):
-        self.reg = reg  # regularisation pulls small-sample biases toward 0
-
-    def fit(self, df):
-        self.mu = df["rating"].mean()
-        # item bias: how much an attraction is rated above/below the global mean
-        self.item_bias = {}
-        for item_id, group in df.groupby("attraction_id"):
-            diffs = group["rating"] - self.mu
-            self.item_bias[item_id] = diffs.sum() / (self.reg + len(diffs))
-        # user bias: how generous a user is, after removing item bias
-        self.user_bias = {}
-        for user_id, group in df.groupby("user_id"):
-            diffs = [r - self.mu - self.item_bias.get(i, 0.0)
-                     for i, r in zip(group["attraction_id"], group["rating"])]
-            self.user_bias[user_id] = sum(diffs) / (self.reg + len(diffs))
-        return self
-
-    def predict(self, user_id, item_id):
-        return _clip(self.mu
-                     + self.user_bias.get(user_id, 0.0)
-                     + self.item_bias.get(item_id, 0.0))
-
-    def _user_bias_from_ratings(self, user_ratings):
-        if not user_ratings:
-            return 0.0
-        diffs = [r - self.mu - self.item_bias.get(i, 0.0)
-                 for i, r in user_ratings.items()]
-        return sum(diffs) / (self.reg + len(diffs))
-
-    def recommend(self, user_ratings, top_n=5, candidate_items=None):
-        bu = self._user_bias_from_ratings(user_ratings)
-        items = candidate_items if candidate_items is not None else self.item_bias.keys()
-        scores = [(i, _clip(self.mu + bu + self.item_bias.get(i, 0.0)))
-                  for i in items if i not in user_ratings]
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return scores[:top_n]
-
-
-# --------------------------------------------------------------------------- #
-# Shared helper: build a dense user x item matrix with NaN for "not rated"
-# --------------------------------------------------------------------------- #
-def _build_matrix(df):
-    users = sorted(df["user_id"].unique())
-    items = sorted(df["attraction_id"].unique())
-    u_index = {u: k for k, u in enumerate(users)}
-    i_index = {i: k for k, i in enumerate(items)}
-    mat = np.full((len(users), len(items)), np.nan)
+# ============================================================================ #
+#  shared helpers
+# ============================================================================ #
+def build_matrix(df):
+    """Pivot the ratings into a users x items matrix (NaN = not rated)."""
+    users = np.sort(df["user_id"].unique())
+    items = np.sort(df["attraction_id"].unique())
+    u_idx = {u: k for k, u in enumerate(users)}
+    i_idx = {i: k for k, i in enumerate(items)}
+    M = np.full((len(users), len(items)), np.nan)
     for u, i, r in zip(df["user_id"], df["attraction_id"], df["rating"]):
-        mat[u_index[u], i_index[i]] = r
-    return mat, users, items, u_index, i_index
+        M[u_idx[u], i_idx[i]] = r
+    return M, users, items, u_idx, i_idx
 
 
-def _cosine_matrix(centered):
-    """Cosine similarity between columns, treating NaN as 0 contribution."""
-    filled = np.nan_to_num(centered, nan=0.0)
-    norms = np.sqrt((filled ** 2).sum(axis=0))
-    norms[norms == 0] = 1e-9
-    sim = (filled.T @ filled) / np.outer(norms, norms)
-    return sim
+def cosine_columns(M):
+    """Cosine similarity between COLUMNS of M; NaN contributes nothing."""
+    F = np.nan_to_num(M, nan=0.0)
+    norms = np.linalg.norm(F, axis=0)
+    norms[norms == 0] = 1e-12
+    S = (F.T @ F) / np.outer(norms, norms)
+    np.fill_diagonal(S, 0.0)
+    return S
 
 
-# --------------------------------------------------------------------------- #
-# 2. Item-based collaborative filtering
-# --------------------------------------------------------------------------- #
-class ItemBasedCF:
-    name = "Item-based CF (cosine)"
-
-    def __init__(self, k=10):
-        self.k = k  # number of neighbour items used in a prediction
-
-    def fit(self, df):
-        self.mu = df["rating"].mean()
-        mat, users, items, u_index, i_index = _build_matrix(df)
-        self.items = items
-        self.i_index = i_index
-        # item mean (used to mean-center each column)
-        self.item_mean = np.nanmean(mat, axis=0)
-        self.item_mean = np.nan_to_num(self.item_mean, nan=self.mu)
-        centered = mat - self.item_mean  # NaN stays NaN
-        self.sim = _cosine_matrix(centered)
-        np.fill_diagonal(self.sim, 0.0)  # an item is not its own neighbour
-        return self
-
-    def _predict_from_ratings(self, item_id, user_ratings):
-        if item_id not in self.i_index:
-            return self.mu
-        target = self.i_index[item_id]
-        # neighbours = items the user rated, ranked by similarity to the target
-        neighbours = []
-        for rated_item, r in user_ratings.items():
-            if rated_item in self.i_index and rated_item != item_id:
-                j = self.i_index[rated_item]
-                neighbours.append((self.sim[target, j], j, r))
-        neighbours = [n for n in neighbours if n[0] > 0]
-        if not neighbours:
-            return _clip(self.item_mean[target])
-        neighbours.sort(key=lambda x: x[0], reverse=True)
-        neighbours = neighbours[: self.k]
-        num = sum(sim * (r - self.item_mean[j]) for sim, j, r in neighbours)
-        den = sum(abs(sim) for sim, j, r in neighbours)
-        return _clip(self.item_mean[target] + num / den) if den else _clip(self.item_mean[target])
-
-    def predict(self, user_id, item_id):
-        # rebuild this user's ratings from the training matrix is unnecessary at
-        # CV time because the harness passes a ratings dict; keep a simple fallback
-        return _clip(self.item_mean[self.i_index[item_id]]) if item_id in self.i_index else self.mu
-
-    def recommend(self, user_ratings, top_n=5, candidate_items=None):
-        items = candidate_items if candidate_items is not None else self.items
-        scores = [(i, self._predict_from_ratings(i, user_ratings))
-                  for i in items if i not in user_ratings]
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return scores[:top_n]
+def pearson_columns(M):
+    """
+    Pearson correlation between COLUMNS of M computed only on co-rated rows.
+    Columns are centered by their own mean over the co-rated subset.
+    """
+    n = M.shape[1]
+    S = np.zeros((n, n))
+    mask = ~np.isnan(M)
+    for a in range(n):
+        for b in range(a + 1, n):
+            co = mask[:, a] & mask[:, b]
+            if co.sum() < MIN_CORATED:
+                continue
+            x, y = M[co, a], M[co, b]
+            xc, yc = x - x.mean(), y - y.mean()
+            denom = np.linalg.norm(xc) * np.linalg.norm(yc)
+            if denom < 1e-12:
+                continue
+            S[a, b] = S[b, a] = float(xc @ yc / denom)
+    return S
 
 
-# --------------------------------------------------------------------------- #
-# 3. User-based collaborative filtering
-# --------------------------------------------------------------------------- #
-class UserBasedCF:
-    name = "User-based CF (cosine)"
+def similarity_matrix(M, kind):
+    """kind: 'cosine' (over columns of M) or 'pearson' (co-rated, centered)."""
+    return cosine_columns(M) if kind == "cosine" else pearson_columns(M)
 
-    def __init__(self, k=15):
-        self.k = k
+
+# ============================================================================ #
+#  1a. NON-PERSONALIZED - damped item means
+# ============================================================================ #
+class MeanRecommender:
+    """
+    'Recommendations based on mean calculations'.
+
+    Score(item) = (sum_of_ratings + DAMPING * global_mean) / (count + DAMPING)
+    The damping keeps an item with one lucky 5* from beating an item with
+    fifty 4.5*s. Ranking is THE SAME for every user (non-personalized).
+    """
+    name = "Mean ratings (non-personalized)"
 
     def fit(self, df):
-        self.mu = df["rating"].mean()
-        mat, users, items, u_index, i_index = _build_matrix(df)
-        self.mat = mat
-        self.items = items
-        self.i_index = i_index
-        self.user_mean = np.nanmean(mat, axis=1)
-        self.user_mean = np.nan_to_num(self.user_mean, nan=self.mu)
-        self.centered = mat - self.user_mean[:, None]
+        self.global_mean = float(df["rating"].mean())
+        g = df.groupby("attraction_id")["rating"].agg(["sum", "count"])
+        self.item_score = {
+            int(i): (row["sum"] + DAMPING * self.global_mean) / (row["count"] + DAMPING)
+            for i, row in g.iterrows()
+        }
+        self.items = np.array(sorted(self.item_score))
         return self
 
-    def _predict_from_ratings(self, item_id, user_ratings):
-        if item_id not in self.i_index:
-            return self.mu
-        col = self.i_index[item_id]
-        # active user's mean and centered vector over the shared item space
-        active = np.full(len(self.items), np.nan)
-        for it, r in user_ratings.items():
-            if it in self.i_index:
-                active[self.i_index[it]] = r
-        active_mean = np.nanmean(active) if np.any(~np.isnan(active)) else self.mu
-        active_c = np.nan_to_num(active - active_mean, nan=0.0)
+    def predict(self, user_id, item_id):
+        return self.item_score.get(int(item_id), self.global_mean)
 
-        train_c = np.nan_to_num(self.centered, nan=0.0)
-        num = train_c @ active_c
-        den = (np.sqrt((train_c ** 2).sum(axis=1)) * np.sqrt((active_c ** 2).sum()))
-        den[den == 0] = 1e-9
-        sims = num / den
+    def predict_from_ratings(self, item_id, ratings):
+        return self.predict(None, item_id)
 
-        # only neighbours who actually rated the target item
-        rated_target = ~np.isnan(self.mat[:, col])
-        candidates = [(sims[u], u) for u in range(len(sims))
-                      if rated_target[u] and sims[u] > 0]
-        if not candidates:
-            return _clip(active_mean)
-        candidates.sort(key=lambda x: x[0], reverse=True)
-        candidates = candidates[: self.k]
-        num2 = sum(s * self.centered[u, col] for s, u in candidates)
-        den2 = sum(abs(s) for s, u in candidates)
-        return _clip(active_mean + num2 / den2) if den2 else _clip(active_mean)
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        scored = [(int(i), self.item_score.get(int(i), self.global_mean))
+                  for i in cands if int(i) not in ratings]
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
+
+
+# ============================================================================ #
+#  1b. NON-PERSONALIZED - bias model (global mean + user/item bias)
+# ============================================================================ #
+class BaselineModel:
+    """r̂(u,i) = μ + b_u + b_i   (biases = damped deviations from the mean)."""
+    name = "Bias baseline (μ + user bias + item bias)"
+
+    def fit(self, df, damping=10):
+        self.mu = float(df["rating"].mean())
+        ig = df.groupby("attraction_id")["rating"]
+        self.b_i = {int(i): (s - c * self.mu) / (c + damping)
+                    for i, s, c in zip(ig.sum().index, ig.sum(), ig.count())}
+        # user bias measured against mu + b_i
+        df = df.copy()
+        df["resid"] = df["rating"] - df["attraction_id"].map(self.b_i).fillna(0) - self.mu
+        ug = df.groupby("user_id")["resid"]
+        self.b_u = {int(u): s / (c + damping)
+                    for u, s, c in zip(ug.sum().index, ug.sum(), ug.count())}
+        self.items = np.array(sorted(self.b_i))
+        return self
 
     def predict(self, user_id, item_id):
-        return self.mu  # CV harness uses recommend-style fold-in instead
+        return self.mu + self.b_u.get(int(user_id), 0.0) + self.b_i.get(int(item_id), 0.0)
 
-    def recommend(self, user_ratings, top_n=5, candidate_items=None):
-        items = candidate_items if candidate_items is not None else self.items
-        scores = [(i, self._predict_from_ratings(i, user_ratings))
-                  for i in items if i not in user_ratings]
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return scores[:top_n]
+    def predict_from_ratings(self, item_id, ratings):
+        if ratings:
+            known = [self.mu + self.b_i.get(int(i), 0.0) for i in ratings]
+            b_u = float(np.mean([r for r in ratings.values()]) - np.mean(known))
+        else:
+            b_u = 0.0
+        return self.mu + b_u + self.b_i.get(int(item_id), 0.0)
+
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        scored = [(int(i), self.predict_from_ratings(i, ratings))
+                  for i in cands if int(i) not in ratings]
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
 
 
-# --------------------------------------------------------------------------- #
-# 4. Matrix Factorization (SVD-style, learned with gradient descent)
-# --------------------------------------------------------------------------- #
+# ============================================================================ #
+#  3a. PERSONALIZED - ITEM-ITEM collaborative filtering
+# ============================================================================ #
+class ItemItemCF:
+    """
+    'People who liked the places you liked also liked ...'
+
+    Similarity between ITEMS (columns of the matrix), using cosine or Pearson.
+    Prediction = similarity-weighted average of the user's OWN ratings of the
+    k most similar items.
+    """
+
+    def __init__(self, similarity="cosine"):
+        self.similarity = similarity
+        self.name = f"Item-item CF ({similarity})"
+
+    def fit(self, df):
+        M, self.users, self.items, self.u_idx, self.i_idx = build_matrix(df)
+        self.item_mean = np.nanmean(M, axis=0)
+        # adjusted-cosine variant: center each USER's row first for cosine
+        if self.similarity == "cosine":
+            centered = M - np.nanmean(M, axis=1, keepdims=True)
+            self.S = cosine_columns(centered)
+        else:
+            self.S = pearson_columns(M)
+        self.M = M
+        self.global_mean = float(np.nanmean(M))
+        return self
+
+    # ---- core: predict an item from a dict of the user's ratings ---------- #
+    def predict_from_ratings(self, item_id, ratings):
+        j = self.i_idx.get(int(item_id))
+        if j is None or not ratings:
+            return self.global_mean
+        sims, vals = [], []
+        for i, r in ratings.items():
+            k = self.i_idx.get(int(i))
+            if k is None:
+                continue
+            s = self.S[j, k]
+            if s > 0:
+                sims.append(s)
+                vals.append(r - self.item_mean[k])
+        if not sims:
+            return float(self.item_mean[j])
+        sims, vals = np.array(sims), np.array(vals)
+        if len(sims) > K_NEIGHBOURS:
+            top = np.argsort(sims)[-K_NEIGHBOURS:]
+            sims, vals = sims[top], vals[top]
+        return float(self.item_mean[j] + (sims @ vals) / sims.sum())
+
+    def predict(self, user_id, item_id):
+        u = self.u_idx.get(int(user_id))
+        if u is None:
+            return self.global_mean
+        row = self.M[u]
+        ratings = {int(self.items[k]): row[k] for k in range(len(self.items))
+                   if not np.isnan(row[k])}
+        return self.predict_from_ratings(item_id, ratings)
+
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        scored = [(int(i), self.predict_from_ratings(i, ratings))
+                  for i in cands if int(i) not in ratings]
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
+
+
+# ============================================================================ #
+#  3b. PERSONALIZED - USER-USER collaborative filtering
+# ============================================================================ #
+class UserUserCF:
+    """
+    'Visitors with taste like yours liked ...'
+
+    Similarity between USERS (rows). Prediction = the user's mean plus the
+    similarity-weighted average of the k most similar users' (mean-centered)
+    ratings of the target item.
+    """
+
+    def __init__(self, similarity="cosine"):
+        self.similarity = similarity
+        self.name = f"User-user CF ({similarity})"
+
+    def fit(self, df):
+        M, self.users, self.items, self.u_idx, self.i_idx = build_matrix(df)
+        self.M = M
+        self.user_mean = np.nanmean(M, axis=1)
+        self.item_mean = np.nanmean(M, axis=0)
+        self.global_mean = float(np.nanmean(M))
+        self.centered = np.nan_to_num(M - self.user_mean[:, None], nan=0.0)
+        # similarity between users = columns of the TRANSPOSED matrix
+        if self.similarity == "cosine":
+            self.S = cosine_columns(self.centered.T)
+        else:
+            self.S = pearson_columns(M.T)
+        return self
+
+    # ---- similarity of a NEW ratings-dict against all training users ------ #
+    def _sims_for_new_user(self, ratings):
+        v = np.zeros(len(self.items))
+        mask = np.zeros(len(self.items), dtype=bool)
+        for i, r in ratings.items():
+            k = self.i_idx.get(int(i))
+            if k is not None:
+                v[k], mask[k] = r, True
+        if not mask.any():
+            return None, None
+        u_mean = v[mask].mean()
+        vc = np.where(mask, v - u_mean, 0.0)
+        if self.similarity == "cosine":
+            norms = np.linalg.norm(self.centered, axis=1) * (np.linalg.norm(vc) + 1e-12)
+            norms[norms == 0] = 1e-12
+            sims = (self.centered @ vc) / norms
+        else:
+            sims = np.zeros(len(self.users))
+            for uu in range(len(self.users)):
+                co = mask & ~np.isnan(self.M[uu])
+                if co.sum() < MIN_CORATED:
+                    continue
+                x, y = v[co], self.M[uu, co]
+                xc, yc = x - x.mean(), y - y.mean()
+                denom = np.linalg.norm(xc) * np.linalg.norm(yc)
+                if denom > 1e-12:
+                    sims[uu] = float(xc @ yc / denom)
+        return sims, u_mean
+
+    def predict_from_ratings(self, item_id, ratings):
+        j = self.i_idx.get(int(item_id))
+        if j is None:
+            return self.global_mean
+        sims, u_mean = self._sims_for_new_user(ratings)
+        if sims is None:
+            return float(self.item_mean[j])
+        rated_j = ~np.isnan(self.M[:, j])
+        sims = np.where(rated_j, sims, 0.0)
+        pos = sims > 0
+        if not pos.any():
+            return float(self.item_mean[j])
+        idx = np.argsort(sims)[-K_NEIGHBOURS:]
+        idx = idx[sims[idx] > 0]
+        num = float(sims[idx] @ (self.M[idx, j] - self.user_mean[idx]))
+        den = float(np.abs(sims[idx]).sum())
+        return float(u_mean + num / den) if den > 0 else float(self.item_mean[j])
+
+    def predict(self, user_id, item_id):
+        u = self.u_idx.get(int(user_id))
+        if u is None:
+            return self.global_mean
+        row = self.M[u]
+        ratings = {int(self.items[k]): row[k] for k in range(len(self.items))
+                   if not np.isnan(row[k])}
+        return self.predict_from_ratings(item_id, ratings)
+
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        scored = [(int(i), self.predict_from_ratings(i, ratings))
+                  for i in cands if int(i) not in ratings]
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
+
+
+# ============================================================================ #
+#  4. BONUS - matrix factorization (SGD)
+# ============================================================================ #
 class MatrixFactorization:
-    name = "Matrix Factorization (SVD)"
+    """r̂(u,i) = μ + b_u + b_i + p_u · q_i, trained with SGD."""
+    name = "Matrix factorization (SGD)"
 
-    def __init__(self, n_factors=8, n_epochs=80, lr=0.01, reg=0.1, seed=42):
-        self.n_factors = n_factors
-        self.n_epochs = n_epochs
-        self.lr = lr
-        self.reg = reg
-        self.seed = seed
+    def __init__(self, n_factors=8, n_epochs=60, lr=0.01, reg=0.05, seed=42):
+        self.f, self.epochs, self.lr, self.reg, self.seed = n_factors, n_epochs, lr, reg, seed
 
     def fit(self, df):
         rng = np.random.default_rng(self.seed)
-        self.mu = df["rating"].mean()
-        users = sorted(df["user_id"].unique())
-        items = sorted(df["attraction_id"].unique())
-        self.u_index = {u: k for k, u in enumerate(users)}
-        self.i_index = {i: k for k, i in enumerate(items)}
-        self.items = items
-        n_users, n_items = len(users), len(items)
-
-        self.bu = np.zeros(n_users)
-        self.bi = np.zeros(n_items)
-        self.P = rng.normal(0, 0.1, (n_users, self.n_factors))
-        self.Q = rng.normal(0, 0.1, (n_items, self.n_factors))
-
-        samples = [(self.u_index[u], self.i_index[i], r)
-                   for u, i, r in zip(df["user_id"], df["attraction_id"], df["rating"])]
-        for _ in range(self.n_epochs):
-            rng.shuffle(samples)
-            for u, i, r in samples:
-                pred = self.mu + self.bu[u] + self.bi[i] + self.P[u] @ self.Q[i]
-                err = r - pred
-                self.bu[u] += self.lr * (err - self.reg * self.bu[u])
-                self.bi[i] += self.lr * (err - self.reg * self.bi[i])
-                pu, qi = self.P[u].copy(), self.Q[i].copy()
-                self.P[u] += self.lr * (err * qi - self.reg * pu)
-                self.Q[i] += self.lr * (err * pu - self.reg * qi)
+        self.users = np.sort(df["user_id"].unique())
+        self.items = np.sort(df["attraction_id"].unique())
+        self.u_idx = {u: k for k, u in enumerate(self.users)}
+        self.i_idx = {i: k for k, i in enumerate(self.items)}
+        nU, nI = len(self.users), len(self.items)
+        self.mu = float(df["rating"].mean())
+        self.bu, self.bi = np.zeros(nU), np.zeros(nI)
+        self.P = rng.normal(0, .1, (nU, self.f))
+        self.Q = rng.normal(0, .1, (nI, self.f))
+        trip = list(zip(df["user_id"].map(self.u_idx), df["attraction_id"].map(self.i_idx),
+                        df["rating"].astype(float)))
+        for _ in range(self.epochs):
+            rng.shuffle(trip)
+            for u, i, r in trip:
+                e = r - (self.mu + self.bu[u] + self.bi[i] + self.P[u] @ self.Q[i])
+                self.bu[u] += self.lr * (e - self.reg * self.bu[u])
+                self.bi[i] += self.lr * (e - self.reg * self.bi[i])
+                pu = self.P[u].copy()
+                self.P[u] += self.lr * (e * self.Q[i] - self.reg * self.P[u])
+                self.Q[i] += self.lr * (e * pu - self.reg * self.Q[i])
         return self
 
     def predict(self, user_id, item_id):
-        if user_id not in self.u_index or item_id not in self.i_index:
-            return _clip(self.mu)
-        u, i = self.u_index[user_id], self.i_index[item_id]
-        return _clip(self.mu + self.bu[u] + self.bi[i] + self.P[u] @ self.Q[i])
+        u, i = self.u_idx.get(int(user_id)), self.i_idx.get(int(item_id))
+        if u is None or i is None:
+            return self.mu
+        return float(self.mu + self.bu[u] + self.bi[i] + self.P[u] @ self.Q[i])
 
-    def _fold_in(self, user_ratings):
-        """Estimate a latent vector + bias for a user from their ratings (ridge)."""
-        rows, targets = [], []
-        bi_known = []
-        for it, r in user_ratings.items():
-            if it in self.i_index:
-                idx = self.i_index[it]
-                rows.append(self.Q[idx])
-                bi_known.append(self.bi[idx])
-                targets.append(r)
-        if not rows:
-            return 0.0, np.zeros(self.n_factors)
-        Qr = np.array(rows)
-        resid = np.array(targets) - self.mu - np.array(bi_known)
-        bu = resid.mean()  # simple user-bias estimate
-        resid = resid - bu
-        A = Qr.T @ Qr + self.reg * np.eye(self.n_factors)
-        pu = np.linalg.solve(A, Qr.T @ resid)
-        return bu, pu
+    def _fold_in(self, ratings):
+        """Ridge-regression a latent vector for a NEW user from their ratings."""
+        idx, y = [], []
+        for i, r in ratings.items():
+            k = self.i_idx.get(int(i))
+            if k is not None:
+                idx.append(k)
+                y.append(r - self.mu - self.bi[k])
+        if not idx:
+            return np.zeros(self.f), 0.0
+        Q = self.Q[idx]
+        y = np.array(y)
+        b_u = float(y.mean()) * 0.5
+        A = Q.T @ Q + self.reg * 10 * np.eye(self.f)
+        p_u = np.linalg.solve(A, Q.T @ (y - b_u))
+        return p_u, b_u
 
-    def recommend(self, user_ratings, top_n=5, candidate_items=None):
-        bu, pu = self._fold_in(user_ratings)
-        items = candidate_items if candidate_items is not None else self.items
-        scores = []
-        for i in items:
-            if i in user_ratings:
+    def predict_from_ratings(self, item_id, ratings):
+        k = self.i_idx.get(int(item_id))
+        if k is None:
+            return self.mu
+        p_u, b_u = self._fold_in(ratings)
+        return float(self.mu + b_u + self.bi[k] + p_u @ self.Q[k])
+
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        p_u, b_u = self._fold_in(ratings)
+        scored = []
+        for i in cands:
+            if int(i) in ratings:
                 continue
-            idx = self.i_index[i]
-            scores.append((i, _clip(self.mu + bu + self.bi[idx] + pu @ self.Q[idx])))
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return scores[:top_n]
+            k = self.i_idx[int(i)]
+            scored.append((int(i), float(self.mu + b_u + self.bi[k] + p_u @ self.Q[k])))
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
 
 
+# ============================================================================ #
+#  registry - every algorithm the app can serve
+# ============================================================================ #
 ALL_MODELS = {
-    "baseline": BaselineModel,
-    "item_cf": ItemBasedCF,
-    "user_cf": UserBasedCF,
-    "mf": MatrixFactorization,
+    "pop_mean":        (MeanRecommender, {},
+                        {"label": "Mean ratings",          "family": "Non-personalized",
+                         "personalized": False,
+                         "blurb": "Ranks places by their (damped) average rating - the same list for everyone."}),
+    "baseline":        (BaselineModel, {},
+                        {"label": "Bias baseline",          "family": "Non-personalized",
+                         "personalized": False,
+                         "blurb": "Global mean + user bias + item bias. Strong reference point for the error metrics."}),
+    "user_cf_cosine":  (UserUserCF, {"similarity": "cosine"},
+                        {"label": "User-user CF · cosine",  "family": "User-user CF",
+                         "personalized": True,
+                         "blurb": "Finds visitors whose tastes are similar to yours (cosine on mean-centered ratings) and recommends what they loved."}),
+    "user_cf_pearson": (UserUserCF, {"similarity": "pearson"},
+                        {"label": "User-user CF · Pearson", "family": "User-user CF",
+                         "personalized": True,
+                         "blurb": "Same idea, but neighbours are matched with Pearson correlation on co-rated places."}),
+    "item_cf_cosine":  (ItemItemCF, {"similarity": "cosine"},
+                        {"label": "Item-item CF · cosine",  "family": "Item-item CF",
+                         "personalized": True,
+                         "blurb": "Scores a place by how similar it is to the places YOU already rated highly (adjusted cosine)."}),
+    "item_cf_pearson": (ItemItemCF, {"similarity": "pearson"},
+                        {"label": "Item-item CF · Pearson", "family": "Item-item CF",
+                         "personalized": True,
+                         "blurb": "Item-item neighbours matched with Pearson correlation on co-rated entries."}),
+    "mf":              (MatrixFactorization, {},
+                        {"label": "Matrix factorization",   "family": "Latent factors (bonus)",
+                         "personalized": True,
+                         "blurb": "Learns hidden taste dimensions with SGD; new users are folded in with ridge regression."}),
 }

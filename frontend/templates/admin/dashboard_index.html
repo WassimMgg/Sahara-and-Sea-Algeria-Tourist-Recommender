@@ -9,6 +9,7 @@
     <a href="{% url 'admin:api_rating_changelist' %}">Manage ratings</a>
     <a href="{% url 'admin:api_attraction_changelist' %}">Manage attractions</a>
     <a href="{% url 'admin:auth_user_changelist' %}">Manage users</a>
+    <a href="{% url 'admin:recommender' %}">⚙ Recommender engine</a>
     <a href="/" class="go" target="_blank">Open public site ↗</a>
   </div>
 
@@ -16,19 +17,19 @@
   <div class="rec-cards">
     <div class="rec-card">
       <span class="rec-ico c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
-      <div><div class="num">{{ stat_attractions }}</div><div class="lbl">Attractions</div></div>
+      <div><div class="num" data-count="{{ stat_attractions }}">0</div><div class="lbl">Attractions</div></div>
     </div>
     <div class="rec-card">
       <span class="rec-ico c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5 19.5a7 7 0 0 1 14 0"/></svg></span>
-      <div><div class="num">{{ stat_accounts }}</div><div class="lbl">Registered users</div></div>
+      <div><div class="num" data-count="{{ stat_accounts }}">0</div><div class="lbl">Registered users</div></div>
     </div>
     <div class="rec-card">
       <span class="rec-ico c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/></svg></span>
-      <div><div class="num">{{ stat_visitors }}</div><div class="lbl">Historical visitors</div></div>
+      <div><div class="num" data-count="{{ stat_visitors }}">0</div><div class="lbl">Historical visitors</div></div>
     </div>
     <div class="rec-card">
       <span class="rec-ico c4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 17l-5.3 2.6 1-5.8L3.5 9.7l5.9-.9L12 3.5Z"/></svg></span>
-      <div><div class="num">{{ stat_ratings_total }}</div><div class="lbl">Total ratings</div>
+      <div><div class="num" data-count="{{ stat_ratings_total }}">0</div><div class="lbl">Total ratings</div>
         <div class="sub">{{ stat_ratings_app }} app · {{ stat_ratings_hist }} historical</div></div>
     </div>
   </div>
@@ -90,6 +91,29 @@
     </div>
   </div>
 </div>
+
+
+<script>
+(function () {
+  /* count-up KPIs */
+  document.querySelectorAll(".rec-card .num[data-count]").forEach(function (el) {
+    var target = parseInt(el.dataset.count || "0", 10), t0 = performance.now();
+    function tick(now) {
+      var p = Math.min(1, (now - t0) / 900), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(target * e).toLocaleString();
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+  /* grow the chart bars from 0 */
+  document.querySelectorAll(".bar-fill").forEach(function (b) {
+    var w = b.style.width; b.style.transition = "none"; b.style.width = "0";
+    requestAnimationFrame(function () {
+      b.style.transition = "width .8s cubic-bezier(.2,.7,.3,1)"; b.style.width = w;
+    });
+  });
+})();
+</script>
 
 {{ block.super }}
 {% endblock %}

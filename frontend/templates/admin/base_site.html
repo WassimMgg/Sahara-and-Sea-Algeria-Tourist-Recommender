@@ -37,6 +37,12 @@
       Visitors
     </a>
 
+    <p class="sb-section">Intelligence</p>
+    <a class="sb-link {% if '/admin/recommender/' in request.path %}active{% endif %}" href="{% url 'admin:recommender' %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a4 4 0 0 1 4 4c2.2.5 4 2.4 4 4.8 0 1.5-.7 2.9-1.8 3.8.5 3-1.8 5.4-4.7 5.4H10.5C7.6 20 5.3 17.6 5.8 14.6A4.9 4.9 0 0 1 4 10.8C4 8.4 5.8 6.5 8 6a4 4 0 0 1 4-4Z"/><path d="M12 8v8M9 11h6"/></svg>
+      Recommender
+    </a>
+
     <p class="sb-section">Access</p>
     <a class="sb-link {% if '/auth/user/' in request.path %}active{% endif %}" href="{% url 'admin:auth_user_changelist' %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5 19.5a7 7 0 0 1 14 0"/></svg>

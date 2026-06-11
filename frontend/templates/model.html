@@ -1,47 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Used model{% endblock %}
-{% block nav_model %}active{% endblock %}
+{% block title %}The recommender · Sahara & Sea{% endblock %}
 
 {% block content %}
-<section class="page-head reveal">
-  <h1>The recommender</h1>
-  <p class="hint">How we chose the model behind your recommendations.</p>
-</section>
+<section class="band">
+  <div class="section-head">
+    <p class="eyebrow">Under the hood</p>
+    <h2>How your recommendations are made</h2>
+  </div>
 
-<section class="prose reveal">
-  <p>
-    Four algorithms were written from scratch and compared with
-    <strong>5-fold cross-validation</strong> on {{ metrics.n_ratings }} ratings, using two
-    standard error metrics — <strong>RMSE</strong> (penalises big mistakes) and
-    <strong>MAE</strong> (average mistake size). Lower is better for both.
-  </p>
-</section>
+  <div class="prose">
+    <p>
+      The site currently serves recommendations with
+      <strong class="active-chip">{{ active.label }}</strong> — {{ active.blurb|lower }}
+      It was selected by comparing every algorithm below with
+      {{ info.folds }}-fold cross-validation on {{ info.n_ratings }} cleaned ratings
+      ({{ info.n_users }} visitors × {{ info.n_items }} attractions). New users with no
+      ratings yet see the non-personalized crowd favourites until they rate a few places.
+    </p>
+  </div>
 
-<section class="metrics-table reveal">
-  <div class="metric-row head"><span>Model</span><span>RMSE</span><span>MAE</span></div>
-  {% for key, r in rows %}
-    <div class="metric-row {% if key == metrics.served %}served{% endif %}">
-      <span class="metric-name">{{ r.name }}{% if key == metrics.served %}<span class="served-tag">in app</span>{% endif %}</span>
-      <span class="metric-val">{{ r.rmse|floatformat:4 }}</span>
-      <span class="metric-val">{{ r.mae|floatformat:4 }}</span>
-    </div>
-  {% endfor %}
-</section>
+  <div class="algo-strip">
+    {% for a in algorithms %}
+    <article class="algo-tile {% if a.active %}live{% endif %}">
+      <header>
+        <h3>{{ a.label }}</h3>
+        {% if a.active %}<span class="pill live">Active</span>
+        {% elif a.default %}<span class="pill">Default</span>{% endif %}
+      </header>
+      <p class="fam">{{ a.family }}{% if not a.personalized %} · non-personalized{% endif %}</p>
+      <p class="blurb">{{ a.blurb }}</p>
+      <dl>
+        <div><dt>RMSE</dt><dd>{{ a.rmse }}</dd></div>
+        <div><dt>MAE</dt><dd>{{ a.mae }}</dd></div>
+        <div><dt>P@5</dt><dd>{{ a.precision_at_5 }}</dd></div>
+        <div><dt>R@5</dt><dd>{{ a.recall_at_5 }}</dd></div>
+      </dl>
+    </article>
+    {% endfor %}
+  </div>
 
-<section class="prose reveal">
-  <h2>Why this model?</h2>
-  <p>
-    The currently selected engine is <strong>{{ model_name }}</strong>. Interestingly, the
-    simple <em>baseline</em> (just the average rating of a place plus how generously a user
-    rates) often scores the lowest RMSE on this dataset — there is limited collaborative
-    “signal” in a small set of ratings.
-  </p>
-  <p>
-    But the baseline gives <em>every</em> user the same ranking, so it cannot personalise.
-    Since the whole point of the app is recommendations that react to <em>your</em> ratings,
-    we use the best <strong>personalised</strong> model instead. This is a useful reminder
-    that <strong>RMSE measures rating prediction, not ranking quality</strong> — and the two
-    can disagree.
-  </p>
+  <div class="prose small">
+    <p>
+      <strong>Reading the numbers:</strong> RMSE and MAE measure how far predicted star
+      ratings land from real ones (lower is better); Precision@5 and Recall@5 check whether
+      the 5 recommended places are ones a visitor actually loved (higher is better). The
+      non-personalized models can look strong on error metrics, but they show the same
+      list to everyone — which is why the default is the best <em>personalized</em> model.
+    </p>
+  </div>
 </section>
 {% endblock %}

@@ -1,44 +1,118 @@
 """
 api/services.py
 ===============
-Bridge between the trained model (ml/model.pkl) and the web app.
+Bridge between the trained models (ml/models.pkl) and the web app.
 
-The model is loaded once and cached. All ratings now come from the DATABASE:
-  * historical Visitor ratings  -> used for the "popular" cold-start ranking
-  * the logged-in account's own ratings -> folded into the model for personal recs
+The bundle holds EVERY trained algorithm. Which one is served is decided at
+runtime by the "active_algorithm" RecommenderSetting row - switchable from
+the admin panel (Recommender page) with no restart:
+
+    get_active_key()            -> key of the algorithm currently served
+    set_active_algorithm(key)   -> switch it (validates the key)
+    available_algorithms()      -> metadata + CV metrics + which is active
+    reload_models()             -> drop the cache (e.g. after retraining)
 """
 
 import sys
+import json
 import pickle
 import threading
 from django.conf import settings
 
-from .models import Attraction, Rating
+from .models import Attraction, Rating, RecommenderSetting
 
-# the pickled model references classes in ml/recommender.py
+# the pickled models reference classes defined in ml/recommender.py
 sys.path.insert(0, str(settings.ML_DIR))
 
-_model = None
-_model_name = None
+ACTIVE_KEY_SETTING = "active_algorithm"
+
+_bundle = None
+_metrics = None
 _lock = threading.Lock()
 
 
-def _load_model():
-    global _model, _model_name
-    if _model is None:
+# --------------------------------------------------------------------------- #
+# loading / cache
+# --------------------------------------------------------------------------- #
+def _load():
+    global _bundle, _metrics
+    if _bundle is None:
         with _lock:
-            if _model is None:
-                with open(settings.ML_DIR / "model.pkl", "rb") as fh:
-                    payload = pickle.load(fh)
-                _model = payload["model"]
-                _model_name = payload["name"]
-    return _model, _model_name
+            if _bundle is None:
+                with open(settings.ML_DIR / "models.pkl", "rb") as fh:
+                    _bundle = pickle.load(fh)
+                with open(settings.ML_DIR / "metrics.json") as fh:
+                    _metrics = json.load(fh)
+    return _bundle, _metrics
 
 
-def model_name():
-    return _load_model()[1]
+def reload_models():
+    """Forget the cached bundle (call after `python ml/train.py`)."""
+    global _bundle, _metrics
+    with _lock:
+        _bundle, _metrics = None, None
 
 
+# --------------------------------------------------------------------------- #
+# algorithm selection
+# --------------------------------------------------------------------------- #
+def get_active_key():
+    bundle, _ = _load()
+    row = RecommenderSetting.objects.filter(key=ACTIVE_KEY_SETTING).first()
+    if row and row.value in bundle["models"]:
+        return row.value
+    return bundle["default"]
+
+
+def set_active_algorithm(key):
+    """Switch the algorithm served to users. Returns the stored key."""
+    bundle, _ = _load()
+    if key not in bundle["models"]:
+        raise ValueError(f"Unknown algorithm '{key}'. "
+                         f"Choices: {', '.join(bundle['models'])}")
+    RecommenderSetting.objects.update_or_create(
+        key=ACTIVE_KEY_SETTING, defaults={"value": key})
+    return key
+
+
+def get_active_model():
+    bundle, _ = _load()
+    key = get_active_key()
+    return bundle["models"][key], key
+
+
+def available_algorithms():
+    """List of dicts: key, label, family, blurb, metrics, active, default."""
+    bundle, metrics = _load()
+    active = get_active_key()
+    out = []
+    for key, res in metrics["results"].items():
+        out.append({
+            "key": key,
+            "label": res["label"],
+            "family": res["family"],
+            "personalized": res["personalized"],
+            "blurb": res["blurb"],
+            "rmse": round(res["rmse"], 4),
+            "mae": round(res["mae"], 4),
+            "precision_at_5": round(res["precision_at_5"], 3),
+            "recall_at_5": round(res["recall_at_5"], 3),
+            "active": key == active,
+            "default": key == metrics["default"],
+        })
+    return out
+
+
+def training_info():
+    _, metrics = _load()
+    return {"n_ratings": metrics["n_ratings"], "n_users": metrics["n_users"],
+            "n_items": metrics["n_items"], "folds": metrics["folds"],
+            "trained_at": metrics["trained_at"]}
+
+
+# --------------------------------------------------------------------------- #
+# data helpers
+# --------------------------------------------------------------------------- #
 def attraction_dict(att, score=None, reason=None):
     data = {
         "id": att.id, "name": att.name, "city": att.city, "region": att.region,
@@ -72,7 +146,7 @@ def account_ratings(user):
 
 
 def favourite_type(ratings_map):
-    """The place_type of the user's highest-rated attractions (for explanations)."""
+    """The place_type the user rates highest (used for explanations)."""
     by_type = {}
     types = dict(Attraction.objects.values_list("id", "place_type"))
     for aid, r in ratings_map.items():
@@ -85,13 +159,16 @@ def favourite_type(ratings_map):
     return best_t
 
 
+# --------------------------------------------------------------------------- #
+# the recommendation entry point used by the API
+# --------------------------------------------------------------------------- #
 def recommend_for(user, top_n=5):
-    model, _ = _load_model()
+    model, key = get_active_model()
     ratings_map = account_ratings(user)
     attractions = {a.id: a for a in Attraction.objects.all()}
 
     if not ratings_map:
-        # cold start -> crowd favourites
+        # cold start -> non-personalized crowd favourites
         order, avg = popularity_ranking()
         return [attraction_dict(attractions[aid], avg[aid], "Popular with visitors")
                 for aid in order[:top_n] if aid in attractions]
@@ -103,7 +180,9 @@ def recommend_for(user, top_n=5):
         if aid not in attractions:
             continue
         att = attractions[aid]
-        if fav and att.place_type == fav:
+        if not getattr(model, "i_idx", None) and not getattr(model, "item_score", None):
+            reason = "Recommended for you"
+        elif fav and att.place_type == fav:
             reason = f"Matches your taste for {fav}"
         else:
             reason = "Visitors with similar taste enjoyed this"

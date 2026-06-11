@@ -108,6 +108,48 @@ class RecAdminSite(admin.AdminSite):
     index_title = "Project administration"
     index_template = "admin/dashboard_index.html"
 
+    def get_urls(self):
+        from django.urls import path
+        return [
+            path("recommender/", self.admin_view(self.recommender_view),
+                 name="recommender"),
+        ] + super().get_urls()
+
+    def recommender_view(self, request):
+        """Admin page to inspect, compare and SWITCH the serving algorithm."""
+        from django.shortcuts import render, redirect
+        from django.contrib import messages
+        from . import services
+
+        if request.method == "POST":
+            action = request.POST.get("action", "switch")
+            if action == "reload":
+                services.reload_models()
+                messages.success(request, "Model bundle reloaded from disk.")
+            else:
+                key = request.POST.get("algorithm", "")
+                try:
+                    services.set_active_algorithm(key)
+                    label = next(a["label"] for a in services.available_algorithms()
+                                 if a["key"] == key)
+                    messages.success(
+                        request, f"Active recommender switched to: {label}.")
+                except (ValueError, StopIteration) as exc:
+                    messages.error(request, str(exc))
+            return redirect("admin:recommender")
+
+        algos = services.available_algorithms()
+        best_rmse = min(a["rmse"] for a in algos)
+        context = {
+            **self.each_context(request),
+            "title": "Recommender engine",
+            "algorithms": algos,
+            "active": next(a for a in algos if a["active"]),
+            "best_rmse": best_rmse,
+            "info": services.training_info(),
+        }
+        return render(request, "admin/recommender.html", context)
+
     def index(self, request, extra_context=None):
         extra_context = extra_context or {}
         extra_context.update(dashboard_stats())

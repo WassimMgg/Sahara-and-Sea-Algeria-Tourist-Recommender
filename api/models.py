@@ -74,3 +74,16 @@ class Rating(models.Model):
     def __str__(self):
         who = self.account or self.visitor
         return f"{who} -> {self.attraction} = {self.rating}"
+
+
+class RecommenderSetting(models.Model):
+    """
+    Tiny key/value store for runtime configuration.
+    Used key: "active_algorithm" -> which recommender the site serves.
+    Changed from the admin panel (Recommender page); no redeploy needed.
+    """
+    key = models.CharField(max_length=50, unique=True)
+    value = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.key} = {self.value}"

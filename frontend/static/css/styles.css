@@ -400,3 +400,67 @@ main { text-align: center; }
 
 /* keep bulleted lists readable: centered as a block, text left inside */
 .tech-list { display: inline-block; text-align: left; }
+
+/* ==================================================================== */
+/*  MODEL PAGE - algorithm tiles                                        */
+/* ==================================================================== */
+.active-chip { color: var(--terracotta-dk); }
+.algo-strip { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  margin:1.8rem 0 1.4rem; }
+.algo-tile { background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:1.2rem 1.25rem 1.1rem; box-shadow:var(--shadow-sm); text-align:left;
+  display:flex; flex-direction:column; gap:.45rem;
+  transition:transform .2s ease, box-shadow .2s ease; }
+.algo-tile:hover { transform:translateY(-4px); box-shadow:var(--shadow); }
+.algo-tile.live { border-color:var(--teal); box-shadow:0 0 0 3px rgba(31,111,107,.12); }
+.algo-tile header { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.algo-tile h3 { font-family:"Fraunces",serif; font-size:1.06rem; font-weight:600; }
+.pill { font-size:.62rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  padding:.18rem .6rem; border-radius:999px; background:var(--sand-deep); color:var(--ink-soft); white-space:nowrap; }
+.pill.live { background:var(--teal); color:#fff; }
+.algo-tile .fam { font-size:.7rem; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft); }
+.algo-tile .blurb { font-size:.86rem; color:var(--ink-soft); line-height:1.5; flex:1; }
+.algo-tile dl { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; margin-top:.3rem;
+  border-top:1px dashed var(--line); padding-top:.65rem; }
+.algo-tile dt { font-size:.62rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+.algo-tile dd { font-family:"Fraunces",serif; font-weight:600; font-size:.98rem; color:var(--terracotta-dk); }
+.prose.small p { font-size:.86rem; color:var(--ink-soft); }
+
+/* ==================================================================== */
+/*  SITE-WIDE POLISH PASS                                               */
+/* ==================================================================== */
+/* frosted sticky navbar */
+.navbar { backdrop-filter:saturate(1.4) blur(10px); -webkit-backdrop-filter:saturate(1.4) blur(10px);
+  background:rgba(250,245,236,.86); }
+
+/* attraction cards: image zoom + golden stars */
+.thumb { overflow:hidden; }
+.thumb img { transition:transform .5s ease; }
+.card:hover .thumb img { transform:scale(1.07); }
+.star { transition:transform .12s ease, color .15s ease; }
+.star.on { color:var(--gold, #d99a2b); }
+.star:hover { transform:scale(1.25); }
+
+/* chips */
+.chip { background:var(--sand-deep); border-radius:999px; padding:.16rem .65rem; font-size:.72rem; }
+
+/* buttons: clearer focus + press feedback */
+.btn-solid:active, .btn-line:active, .btn-ghost:active { transform:translateY(1px) scale(.99); }
+.btn-solid:focus-visible, .btn-ghost:focus-visible, .btn-line:focus-visible,
+a:focus-visible, button:focus-visible { outline:3px solid rgba(31,111,107,.35); outline-offset:2px; }
+
+/* recommendation strip cards */
+.rec-score { color:var(--teal); font-weight:700; }
+.rec-reason { background:var(--sand-deep); border-radius:999px; padding:.18rem .7rem; font-size:.72rem; }
+
+/* footer */
+.site-footer { background:linear-gradient(0deg, rgba(198,93,59,.05), transparent 70%); }
+
+/* hero scroll hint */
+.hero-card::after { content:""; position:absolute; left:50%; bottom:16px; width:22px; height:34px;
+  border:2px solid rgba(255,255,255,.75); border-radius:12px; transform:translateX(-50%); z-index:2; }
+.hero-card::before { content:""; position:absolute; left:50%; bottom:38px; width:4px; height:8px;
+  background:#fff; border-radius:2px; transform:translateX(-50%); z-index:3;
+  animation:scrollHint 1.6s ease-in-out infinite; }
+@keyframes scrollHint { 0%{opacity:1; translate:0 0} 70%{opacity:0; translate:0 10px} 100%{opacity:0} }
+@media (max-width:860px){ .hero-card::after, .hero-card::before { display:none; } }
