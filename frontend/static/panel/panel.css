@@ -91,7 +91,18 @@ svg[fill="none"] { fill: none; }   /* outline icons keep their stroke style */
   letter-spacing: .22em; text-transform: uppercase; color: #9b8a72; margin-top: .15rem;
 }
 
-.side-nav { flex: 1; padding: 1rem .8rem; overflow-y: auto; }
+.side-nav {
+  flex: 1; padding: 1rem .8rem; overflow-y: auto;
+  scrollbar-width: thin;                              /* slim themed scrollbar */
+  scrollbar-color: rgba(198, 93, 59, .55) transparent;
+}
+.side-nav::-webkit-scrollbar { width: 6px; }
+.side-nav::-webkit-scrollbar-track { background: transparent; }
+.side-nav::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(198, 93, 59, .55), rgba(168, 71, 42, .55));
+  border-radius: 999px;
+}
+.side-nav::-webkit-scrollbar-thumb:hover { background: var(--terracotta); }
 .side-group {
   display: block; font-size: .66rem; font-weight: 600; letter-spacing: .22em;
   text-transform: uppercase; color: #8a7960; padding: 1.1rem .55rem .45rem;
