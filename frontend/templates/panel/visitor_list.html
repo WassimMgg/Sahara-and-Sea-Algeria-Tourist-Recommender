@@ -1,0 +1,70 @@
+{% extends "panel/base.html" %}
+
+{% block title %}Visitors{% endblock %}
+{% block eyebrow %}Community{% endblock %}
+{% block heading %}Historical visitors <span class="count-chip">{{ total }}</span>{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="?{{ querystring }}{% if querystring %}&{% endif %}export=csv">Export CSV</a>
+<a class="btn primary" href="{% url 'panel:visitor_add' %}">+ New visitor</a>
+{% endblock %}
+
+{% block content %}
+<form class="toolbar reveal" method="get">
+  <div class="search">
+    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5Zm-6 0a4.5 4.5 0 1 1 4.5-4.5 4.5 4.5 0 0 1-4.5 4.5Z"/></svg>
+    <input class="fld" type="search" name="q" value="{{ q }}" placeholder="Search name or country…">
+  </div>
+  <select class="fld auto" name="gender">
+    <option value="">All genders</option>
+    {% for g in genders %}<option value="{{ g }}" {% if g == sel_gender %}selected{% endif %}>{{ g }}</option>{% endfor %}
+  </select>
+  <select class="fld auto" name="country">
+    <option value="">All countries</option>
+    {% for c in countries %}<option value="{{ c }}" {% if c == sel_country %}selected{% endif %}>{{ c }}</option>{% endfor %}
+  </select>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="card table-card reveal">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th class="w-id">#</th><th>Name</th><th class="num">Age</th><th>Gender</th>
+        <th>Home country</th><th class="num">Ratings</th><th class="w-act"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in page %}
+      <tr>
+        <td class="dim">{{ v.id }}</td>
+        <td>
+          <span class="cell-avatar">{{ v.name|first|upper }}</span>
+          <a class="row-link" href="{% url 'panel:visitor_edit' v.id %}">{{ v.name }}</a>
+        </td>
+        <td class="num">{{ v.age|default:"—" }}</td>
+        <td>{{ v.gender|default:"—" }}</td>
+        <td>{{ v.home_country|default:"—" }}</td>
+        <td class="num"><span class="pill ink">{{ v.n }}</span></td>
+        <td class="row-actions">
+          <a class="icon-btn" href="{% url 'panel:visitor_edit' v.id %}" title="Edit">
+            <svg viewBox="0 0 24 24"><path d="M3 17.2V21h3.8L17.9 9.9l-3.8-3.8L3 17.2ZM20.7 7.1a1 1 0 0 0 0-1.4l-2.4-2.4a1 1 0 0 0-1.4 0l-1.8 1.9 3.7 3.7 1.9-1.8Z"/></svg>
+          </a>
+          <form method="post" action="{% url 'panel:visitor_delete' v.id %}"
+                data-confirm="Delete visitor “{{ v.name }}”? Their {{ v.n }} rating{{ v.n|pluralize }} will be deleted too.">
+            {% csrf_token %}
+            <button class="icon-btn danger" title="Delete">
+              <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="empty">No visitors match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include "panel/_pagination.html" %}
+{% endblock %}

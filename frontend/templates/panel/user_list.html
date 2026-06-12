@@ -1,0 +1,88 @@
+{% extends "panel/base.html" %}
+
+{% block title %}Accounts{% endblock %}
+{% block eyebrow %}Community{% endblock %}
+{% block heading %}App accounts <span class="count-chip">{{ total }}</span>{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="?{{ querystring }}{% if querystring %}&{% endif %}export=csv">Export CSV</a>
+<a class="btn primary" href="{% url 'panel:user_add' %}">+ New account</a>
+{% endblock %}
+
+{% block content %}
+<form class="toolbar reveal" method="get">
+  <div class="search">
+    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5Zm-6 0a4.5 4.5 0 1 1 4.5-4.5 4.5 4.5 0 0 1-4.5 4.5Z"/></svg>
+    <input class="fld" type="search" name="q" value="{{ q }}" placeholder="Search username or email…">
+  </div>
+  <select class="fld auto" name="role">
+    <option value="">All roles</option>
+    <option value="staff" {% if sel_role == 'staff' %}selected{% endif %}>Staff</option>
+    <option value="member" {% if sel_role == 'member' %}selected{% endif %}>Members</option>
+  </select>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="card table-card reveal">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Username</th><th>Email</th><th>Joined</th><th class="num">Ratings</th>
+        <th>Status</th><th>Quick toggles</th><th class="w-act"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in page %}
+      <tr {% if not u.is_active %}class="row-off"{% endif %}>
+        <td>
+          <span class="cell-avatar {% if u.is_staff %}staff{% endif %}">{{ u.username|first|upper }}</span>
+          <a class="row-link" href="{% url 'panel:user_edit' u.id %}">{{ u.username }}</a>
+          {% if u == request.user %}<span class="tag gold">you</span>{% endif %}
+        </td>
+        <td class="dim">{{ u.email|default:"—" }}</td>
+        <td class="dim">{{ u.date_joined|date:"M j, Y" }}</td>
+        <td class="num"><span class="pill ink">{{ u.n }}</span></td>
+        <td>
+          {% if u.is_superuser %}<span class="tag terra">superuser</span>
+          {% elif u.is_staff %}<span class="tag teal">staff</span>
+          {% else %}<span class="tag">member</span>{% endif %}
+          {% if not u.is_active %}<span class="tag low">inactive</span>{% endif %}
+        </td>
+        <td>
+          {% if u != request.user %}
+          <form class="inline" method="post" action="{% url 'panel:user_toggle' u.id %}">
+            {% csrf_token %}<input type="hidden" name="field" value="is_active">
+            <button class="chip-btn {% if u.is_active %}on{% endif %}"
+                    title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}">active</button>
+          </form>
+          <form class="inline" method="post" action="{% url 'panel:user_toggle' u.id %}">
+            {% csrf_token %}<input type="hidden" name="field" value="is_staff">
+            <button class="chip-btn {% if u.is_staff %}on{% endif %}"
+                    title="{% if u.is_staff %}Remove staff access{% else %}Grant staff access{% endif %}">staff</button>
+          </form>
+          {% else %}<span class="dim">—</span>{% endif %}
+        </td>
+        <td class="row-actions">
+          <a class="icon-btn" href="{% url 'panel:user_edit' u.id %}" title="Edit">
+            <svg viewBox="0 0 24 24"><path d="M3 17.2V21h3.8L17.9 9.9l-3.8-3.8L3 17.2ZM20.7 7.1a1 1 0 0 0 0-1.4l-2.4-2.4a1 1 0 0 0-1.4 0l-1.8 1.9 3.7 3.7 1.9-1.8Z"/></svg>
+          </a>
+          {% if u != request.user %}
+          <form method="post" action="{% url 'panel:user_delete' u.id %}"
+                data-confirm="Delete account “{{ u.username }}”? Their {{ u.n }} in-app rating{{ u.n|pluralize }} will be deleted too.">
+            {% csrf_token %}
+            <button class="icon-btn danger" title="Delete">
+              <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>
+            </button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="empty">No accounts match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include "panel/_pagination.html" %}
+{% endblock %}

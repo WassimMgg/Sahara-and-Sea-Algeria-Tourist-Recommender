@@ -1,0 +1,105 @@
+{% extends "panel/base.html" %}
+
+{% block title %}Recommender engine{% endblock %}
+{% block eyebrow %}Intelligence{% endblock %}
+{% block heading %}Recommender engine{% endblock %}
+
+{% block actions %}
+<form method="post">{% csrf_token %}
+  <button class="btn ghost" name="action" value="reload"
+          title="Re-read ml/models.pkl after running train.py">&#8635; Reload models from disk</button>
+</form>
+{% endblock %}
+
+{% block content %}
+
+<!-- active model strip -->
+<section class="kpis reveal">
+  <article class="kpi spotlight wide-text">
+    <div><strong class="serving">{{ active.label }}</strong>
+      <span>Currently serving recommendations<small> · switched live, no restart needed</small></span></div>
+  </article>
+  <article class="kpi">
+    <span class="kpi-ico terra">
+      <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-8 4 6v5H3v-0Z"/></svg>
+    </span>
+    <div><strong>{{ active.rmse }}</strong><span>Active RMSE <small>· 5-fold CV</small></span></div>
+  </article>
+  <article class="kpi">
+    <span class="kpi-ico gold">
+      <svg viewBox="0 0 24 24"><path d="m12 17.3 6.2 3.7-1.7-7 5.5-4.7-7.2-.6L12 2 9.2 8.7 2 9.3l5.5 4.7-1.7 7L12 17.3Z"/></svg>
+    </span>
+    <div><strong>{{ active.precision_at_5 }}</strong><span>Precision@5</span></div>
+  </article>
+  <article class="kpi">
+    <span class="kpi-ico teal">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+    </span>
+    <div><strong data-countup>{{ info.n_ratings }}</strong>
+      <span>Training ratings <small>· {{ info.n_users }} users · {{ info.n_items }} places</small></span></div>
+  </article>
+</section>
+
+<!-- switcher -->
+<section class="card reveal">
+  <header class="card-head">
+    <h2>Switch the serving algorithm</h2>
+    <span class="card-note">applies immediately to every user — cold-start users always
+      get crowd favourites first</span>
+  </header>
+  <form method="post">{% csrf_token %}
+    <div class="algo-grid">
+      {% for a in algorithms %}
+      <label class="algo {% if a.active %}on{% endif %}">
+        <input type="radio" name="algorithm" value="{{ a.key }}" {% if a.active %}checked{% endif %}>
+        <span class="algo-top">
+          <strong>{{ a.label }}</strong>
+          {% if a.active %}<span class="tag live">ACTIVE</span>{% endif %}
+          {% if a.default %}<span class="tag">default</span>{% endif %}
+        </span>
+        <span class="algo-family">{{ a.family }}{% if not a.personalized %} · same list for everyone{% endif %}</span>
+        <span class="algo-blurb">{{ a.blurb }}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:{{ a.meter }}%"></span></span>
+        <span class="algo-nums">RMSE {{ a.rmse }} · MAE {{ a.mae }} · P@5 {{ a.precision_at_5 }} · R@5 {{ a.recall_at_5 }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="form-foot">
+      <button class="btn primary" type="submit">Apply selected algorithm</button>
+    </div>
+  </form>
+</section>
+
+<!-- comparison table -->
+<section class="card table-card reveal">
+  <header class="card-head pad">
+    <h2>Cross-validated comparison</h2>
+    <span class="card-note">lower RMSE / MAE is better · higher P@5 / R@5 is better</span>
+  </header>
+  <table class="tbl">
+    <thead>
+      <tr><th>Algorithm</th><th>Family</th><th class="num">RMSE</th><th class="num">MAE</th>
+          <th class="num">Precision@5</th><th class="num">Recall@5</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for a in algorithms %}
+      <tr>
+        <td><strong>{{ a.label }}</strong></td>
+        <td class="dim">{{ a.family }}</td>
+        <td class="num {% if a.rmse == best_rmse %}best{% endif %}">{{ a.rmse }}</td>
+        <td class="num">{{ a.mae }}</td>
+        <td class="num">{{ a.precision_at_5 }}</td>
+        <td class="num">{{ a.recall_at_5 }}</td>
+        <td>
+          {% if a.active %}<span class="tag live">ACTIVE</span>
+          {% elif a.default %}<span class="tag">default</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<p class="footnote reveal">Trained {{ info.trained_at }} · {{ info.folds }}-fold cross-validation ·
+  retrain with <code>python ml/train.py</code>, then “Reload models from disk”.</p>
+{% endblock %}

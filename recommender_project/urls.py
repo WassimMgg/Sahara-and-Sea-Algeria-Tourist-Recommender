@@ -1,10 +1,9 @@
-from django.urls import path
+from django.urls import include, path
 from api import views
-from api.admin import admin_site
 
 urlpatterns = [
-    # admin panel
-    path("admin/", admin_site.urls),
+    # hand-built admin panel
+    path("admin/", include("panel.urls", namespace="panel")),
 
     # pages
     path("", views.home, name="home"),

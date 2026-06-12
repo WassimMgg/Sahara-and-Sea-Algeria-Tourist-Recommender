@@ -1,0 +1,79 @@
+{% extends "panel/base.html" %}
+
+{% block title %}Attractions{% endblock %}
+{% block eyebrow %}Catalogue{% endblock %}
+{% block heading %}Attractions <span class="count-chip">{{ total }}</span>{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="?{{ querystring }}{% if querystring %}&{% endif %}export=csv">Export CSV</a>
+<a class="btn primary" href="{% url 'panel:attraction_add' %}">+ New attraction</a>
+{% endblock %}
+
+{% block content %}
+<form class="toolbar reveal" method="get">
+  <div class="search">
+    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5Zm-6 0a4.5 4.5 0 1 1 4.5-4.5 4.5 4.5 0 0 1-4.5 4.5Z"/></svg>
+    <input class="fld" type="search" name="q" value="{{ q }}" placeholder="Search name, city, region, description…">
+  </div>
+  <select class="fld auto" name="region">
+    <option value="">All regions</option>
+    {% for r in regions %}<option value="{{ r }}" {% if r == sel_region %}selected{% endif %}>{{ r }}</option>{% endfor %}
+  </select>
+  <select class="fld auto" name="type">
+    <option value="">All types</option>
+    {% for t in types %}<option value="{{ t }}" {% if t == sel_type %}selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+  <select class="fld auto" name="sort">
+    <option value="id" {% if sort == 'id' %}selected{% endif %}>Sort: id</option>
+    <option value="name" {% if sort == 'name' %}selected{% endif %}>Sort: name</option>
+    <option value="city" {% if sort == 'city' %}selected{% endif %}>Sort: city</option>
+    <option value="-n" {% if sort == '-n' %}selected{% endif %}>Sort: most rated</option>
+    <option value="-avg" {% if sort == '-avg' %}selected{% endif %}>Sort: best rated</option>
+  </select>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="card table-card reveal">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th class="w-id">#</th><th></th><th>Name</th><th>City</th><th>Region</th>
+        <th>Type</th><th class="num">Ratings</th><th class="num">Avg</th><th class="w-act"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in page %}
+      <tr>
+        <td class="dim">{{ a.id }}</td>
+        <td class="w-thumb"><img class="thumb" src="{{ a.thumb }}" alt="" loading="lazy"></td>
+        <td><a class="row-link" href="{% url 'panel:attraction_edit' a.id %}">{{ a.name }}</a></td>
+        <td>{{ a.city }}</td>
+        <td>{{ a.region }}</td>
+        <td><span class="tag">{{ a.place_type }}</span></td>
+        <td class="num">{{ a.n }}</td>
+        <td class="num">
+          {% if a.avg %}<span class="pill {% if a.avg >= 4 %}good{% elif a.avg >= 3 %}mid{% else %}low{% endif %}">{{ a.avg|floatformat:2 }} &#9733;</span>
+          {% else %}<span class="dim">—</span>{% endif %}
+        </td>
+        <td class="row-actions">
+          <a class="icon-btn" href="{% url 'panel:attraction_edit' a.id %}" title="Edit">
+            <svg viewBox="0 0 24 24"><path d="M3 17.2V21h3.8L17.9 9.9l-3.8-3.8L3 17.2ZM20.7 7.1a1 1 0 0 0 0-1.4l-2.4-2.4a1 1 0 0 0-1.4 0l-1.8 1.9 3.7 3.7 1.9-1.8Z"/></svg>
+          </a>
+          <form method="post" action="{% url 'panel:attraction_delete' a.id %}"
+                data-confirm="Delete “{{ a.name }}”? Its {{ a.n }} rating{{ a.n|pluralize }} will be deleted too.">
+            {% csrf_token %}
+            <button class="icon-btn danger" title="Delete">
+              <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></svg>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="empty">No attractions match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include "panel/_pagination.html" %}
+{% endblock %}

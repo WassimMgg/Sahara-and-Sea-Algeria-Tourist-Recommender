@@ -8,14 +8,13 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]  # fine for a local class project
 
 INSTALLED_APPS = [
-    'jazzmin',
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "api",
+    "panel",  # the hand-built admin panel (served at /admin/)
 ]
 
 MIDDLEWARE = [
@@ -64,7 +63,7 @@ STATICFILES_DIRS = [BASE_DIR / "frontend" / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Auth redirects
+# Auth redirects (public site)
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"

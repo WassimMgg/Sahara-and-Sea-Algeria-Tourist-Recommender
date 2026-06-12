@@ -1,0 +1,48 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff sign in · Sahara &amp; Sea</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
+</head>
+<body class="login-body">
+
+  <div class="login-scene" aria-hidden="true">
+    <span class="dune d1"></span><span class="dune d2"></span><span class="dune d3"></span>
+    <span class="sun"></span>
+    <span class="star s1"></span><span class="star s2"></span><span class="star s3"></span>
+    <span class="star s4"></span><span class="star s5"></span>
+  </div>
+
+  <div class="login-card">
+    <span class="login-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="12" cy="12" r="9"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>
+        <path d="M14.8 9.2 13 13l-3.8 1.8L11 11l3.8-1.8Z" fill="currentColor" stroke="none"/>
+      </svg>
+    </span>
+    <p class="login-eyebrow">Sahara &amp; Sea</p>
+    <h1>Control panel</h1>
+    <p class="login-sub">Staff access only. Sign in to manage the catalogue,
+       ratings and the recommendation engine.</p>
+
+    {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
+
+    <form method="post" autocomplete="off">{% csrf_token %}
+      <label class="login-label" for="lg-user">Username</label>
+      <input class="fld" id="lg-user" name="username" required autofocus>
+      <label class="login-label" for="lg-pass">Password</label>
+      <input class="fld" id="lg-pass" name="password" type="password" required>
+      <button class="btn primary full" type="submit">Enter the panel</button>
+    </form>
+
+    <a class="login-back" href="/">&larr; Back to the site</a>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+{% if page.paginator.num_pages > 1 %}
+<nav class="pager">
+  <span class="pager-info">
+    Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} item{{ page.paginator.count|pluralize }}
+  </span>
+  <div class="pager-btns">
+    {% if page.has_previous %}
+      <a class="pager-btn" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page.previous_page_number }}">&larr; Prev</a>
+    {% endif %}
+    {% for n in page.elided %}
+      {% if n == page.paginator.ELLIPSIS %}
+        <span class="pager-dots">…</span>
+      {% elif n == page.number %}
+        <span class="pager-btn on">{{ n }}</span>
+      {% else %}
+        <a class="pager-btn" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ n }}">{{ n }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page.has_next %}
+      <a class="pager-btn" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page.next_page_number }}">Next &rarr;</a>
+    {% endif %}
+  </div>
+</nav>
+{% endif %}

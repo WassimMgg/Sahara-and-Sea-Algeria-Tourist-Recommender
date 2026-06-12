@@ -1,0 +1,50 @@
+{% extends "panel/base.html" %}
+
+{% block title %}{% if obj %}Rating #{{ obj.id }}{% else %}New rating{% endif %}{% endblock %}
+{% block eyebrow %}Catalogue · ratings{% endblock %}
+{% block heading %}{% if obj %}Edit rating #{{ obj.id }}{% else %}New rating{% endif %}{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="{% url 'panel:ratings' %}">&larr; Back to list</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-layout reveal">
+
+  <form method="post" class="card form-card">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+
+    <h2 class="form-section">What was rated</h2>
+    <div class="fgroup">{{ form.attraction.label_tag }}{{ form.attraction }}{{ form.attraction.errors }}</div>
+
+    <h2 class="form-section">Who rated it</h2>
+    <div class="frow two">
+      <div class="fgroup">{{ form.visitor.label_tag }}{{ form.visitor }}{{ form.visitor.errors }}
+        <small class="help">{{ form.visitor.help_text }}</small></div>
+      <div class="fgroup">{{ form.account.label_tag }}{{ form.account }}{{ form.account.errors }}
+        <small class="help">{{ form.account.help_text }}</small></div>
+    </div>
+
+    <h2 class="form-section">The rating</h2>
+    <div class="frow two">
+      <div class="fgroup">{{ form.rating.label_tag }}{{ form.rating }}{{ form.rating.errors }}
+        <small class="help">1 to 5 — halves allowed.</small></div>
+      <div class="fgroup">{{ form.visit_date.label_tag }}{{ form.visit_date }}{{ form.visit_date.errors }}</div>
+    </div>
+
+    <div class="form-foot">
+      <button class="btn primary" type="submit">{% if obj %}Save changes{% else %}Create rating{% endif %}</button>
+      {% if obj %}
+      <button class="btn danger ghost-danger" type="submit" form="delete-form">Delete rating</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if obj %}
+<form id="delete-form" method="post" action="{% url 'panel:rating_delete' obj.id %}"
+      data-confirm="Delete this rating?">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% endblock %}

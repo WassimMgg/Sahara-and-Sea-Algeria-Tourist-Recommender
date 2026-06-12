@@ -1,0 +1,119 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Control panel{% endblock %} · Sahara &amp; Sea</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
+</head>
+<body class="panel-body">
+
+<aside class="sidebar" id="sidebar">
+  <a class="side-brand" href="{% url 'panel:dashboard' %}">
+    <span class="side-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="12" cy="12" r="9"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>
+        <path d="M14.8 9.2 13 13l-3.8 1.8L11 11l3.8-1.8Z" fill="currentColor" stroke="none"/>
+      </svg>
+    </span>
+    <span class="side-brand-text">Sahara <em>&amp;</em> Sea<small>control panel</small></span>
+  </a>
+
+  <nav class="side-nav">
+    <span class="side-group">Overview</span>
+    <a href="{% url 'panel:dashboard' %}" class="{% if nav == 'dashboard' %}on{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg>
+      Dashboard
+    </a>
+
+    <span class="side-group">Catalogue</span>
+    <a href="{% url 'panel:attractions' %}" class="{% if nav == 'attractions' %}on{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
+      Attractions
+    </a>
+    <a href="{% url 'panel:ratings' %}" class="{% if nav == 'ratings' %}on{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="m12 17.3 6.2 3.7-1.7-7 5.5-4.7-7.2-.6L12 2 9.2 8.7 2 9.3l5.5 4.7-1.7 7L12 17.3Z"/></svg>
+      Ratings
+    </a>
+
+    <span class="side-group">Community</span>
+    <a href="{% url 'panel:visitors' %}" class="{% if nav == 'visitors' %}on{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="M16 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 16 11Zm-8 0a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 8 11Zm0 2c-2.7 0-8 1.3-8 4v3h16v-3c0-2.7-5.3-4-8-4Zm8 0h-.9a5.5 5.5 0 0 1 2.9 4v3h6v-3c0-2.7-5.3-4-8-4Z"/></svg>
+      Visitors
+    </a>
+    <a href="{% url 'panel:users' %}" class="{% if nav == 'users' %}on{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5Z"/></svg>
+      Accounts
+    </a>
+
+    <span class="side-group">Intelligence</span>
+    <a href="{% url 'panel:recommender' %}" class="{% if nav == 'recommender' %}on{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="m19 9 1.3-2.7L23 5l-2.7-1.3L19 1l-1.3 2.7L15 5l2.7 1.3L19 9Zm-7.5-1L9 2 6.5 8 1 10.5 6.5 13 9 19l2.5-6L17 10.5 11.5 8ZM19 15l-1.3 2.7L15 19l2.7 1.3L19 23l1.3-2.7L23 19l-2.7-1.3L19 15Z"/></svg>
+      Recommender
+    </a>
+  </nav>
+
+  <div class="side-foot">
+    <a class="side-site" href="/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24"><path d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3h-7ZM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7Z"/></svg>
+      View live site
+    </a>
+    <div class="side-user">
+      <span class="side-avatar">{{ request.user.username|first|upper }}</span>
+      <span class="side-user-name">{{ request.user.username }}<small>staff</small></span>
+      <form method="post" action="{% url 'panel:logout' %}">{% csrf_token %}
+        <button class="side-logout" title="Sign out">
+          <svg viewBox="0 0 24 24"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9ZM20 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="burger" id="burger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="top-title">
+      <span class="top-eyebrow">{% block eyebrow %}Sahara &amp; Sea{% endblock %}</span>
+      <h1>{% block heading %}Control panel{% endblock %}</h1>
+    </div>
+    <div class="top-actions">{% block actions %}{% endblock %}</div>
+  </header>
+
+  {% if messages %}
+  <div class="toasts" id="toasts">
+    {% for m in messages %}
+    <div class="toast {{ m.tags }}">{{ m }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- shared delete-confirm dialog, filled by panel.js -->
+<div class="modal" id="confirm-modal" hidden>
+  <div class="modal-card">
+    <h3 id="confirm-title">Delete?</h3>
+    <p id="confirm-text">This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn danger" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'panel/panel.js' %}" defer></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

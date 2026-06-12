@@ -1,0 +1,89 @@
+{% extends "panel/base.html" %}
+
+{% block title %}{% if obj %}{{ obj.username }}{% else %}New account{% endif %}{% endblock %}
+{% block eyebrow %}Community · accounts{% endblock %}
+{% block heading %}{% if obj %}Edit “{{ obj.username }}”{% else %}New account{% endif %}{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="{% url 'panel:users' %}">&larr; Back to list</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-layout reveal">
+
+  <form method="post" class="card form-card">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+
+    <h2 class="form-section">Identity</h2>
+    <div class="frow two">
+      <div class="fgroup">{{ form.username.label_tag }}{{ form.username }}{{ form.username.errors }}</div>
+      <div class="fgroup">{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
+    </div>
+
+    <h2 class="form-section">{% if obj %}Password{% else %}Credentials{% endif %}</h2>
+    {% if obj %}
+    <div class="fgroup">{{ form.new_password.label_tag }}{{ form.new_password }}{{ form.new_password.errors }}
+      <small class="help">{{ form.new_password.help_text }}</small></div>
+    {% else %}
+    <div class="fgroup">{{ form.password.label_tag }}{{ form.password }}{{ form.password.errors }}
+      <small class="help">{{ form.password.help_text }}</small></div>
+    {% endif %}
+
+    <h2 class="form-section">Access</h2>
+    <div class="check-grid">
+      {% if obj %}
+      <label class="check {% if obj == request.user %}locked{% endif %}">
+        {{ form.is_active }}<span><strong>Active</strong><small>{{ form.is_active.help_text }}</small></span>
+      </label>
+      {% endif %}
+      <label class="check {% if obj == request.user %}locked{% endif %}">
+        {{ form.is_staff }}<span><strong>Staff</strong><small>{{ form.is_staff.help_text }}</small></span>
+      </label>
+      <label class="check {% if obj == request.user %}locked{% endif %}">
+        {{ form.is_superuser }}<span><strong>Superuser</strong><small>{{ form.is_superuser.help_text }}</small></span>
+      </label>
+    </div>
+    {% if obj == request.user %}
+    <p class="help warn">This is your own account — be careful removing your own access.</p>
+    {% endif %}
+
+    <div class="form-foot">
+      <button class="btn primary" type="submit">{% if obj %}Save changes{% else %}Create account{% endif %}</button>
+      {% if obj and obj != request.user %}
+      <button class="btn danger ghost-danger" type="submit" form="delete-form">Delete account</button>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if obj %}
+  <aside class="form-side">
+    <div class="card">
+      <header class="card-head"><h2>Profile</h2></header>
+      <ul class="kv">
+        <li><span>Joined</span><strong>{{ obj.date_joined|date:"M j, Y" }}</strong></li>
+        <li><span>Last login</span><strong>{{ obj.last_login|date:"M j, Y H:i"|default:"never" }}</strong></li>
+        <li><span>Ratings given</span><strong>{{ obj.ratings.count }}</strong></li>
+      </ul>
+    </div>
+    <div class="card">
+      <header class="card-head"><h2>Recent ratings</h2></header>
+      <ul class="feed compact">
+        {% for r in recent %}
+        <li>
+          <span class="feed-text"><a href="{% url 'panel:attraction_edit' r.attraction_id %}">{{ r.attraction.name }}</a></span>
+          <span class="pill gold">{{ r.rating }} &#9733;</span>
+        </li>
+        {% empty %}<li class="empty">No ratings from this account.</li>{% endfor %}
+      </ul>
+    </div>
+  </aside>
+  {% endif %}
+</div>
+
+{% if obj and obj != request.user %}
+<form id="delete-form" method="post" action="{% url 'panel:user_delete' obj.id %}"
+      data-confirm="Delete account “{{ obj.username }}”? Their in-app ratings will be deleted too.">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% endblock %}

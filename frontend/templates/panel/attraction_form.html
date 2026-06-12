@@ -1,0 +1,98 @@
+{% extends "panel/base.html" %}
+
+{% block title %}{% if obj %}{{ obj.name }}{% else %}New attraction{% endif %}{% endblock %}
+{% block eyebrow %}Catalogue · attractions{% endblock %}
+{% block heading %}{% if obj %}Edit “{{ obj.name }}”{% else %}New attraction{% endif %}{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="{% url 'panel:attractions' %}">&larr; Back to list</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-layout reveal">
+
+  <form method="post" class="card form-card">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+
+    <h2 class="form-section">Basic info</h2>
+    <div class="frow two">
+      <div class="fgroup">{{ form.id.label_tag }}{{ form.id }}{{ form.id.errors }}
+        <small class="help">{{ form.id.help_text }}</small></div>
+      <div class="fgroup">{{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}</div>
+    </div>
+    <div class="frow two">
+      <div class="fgroup">{{ form.city.label_tag }}{{ form.city }}{{ form.city.errors }}</div>
+      <div class="fgroup">{{ form.region.label_tag }}{{ form.region }}{{ form.region.errors }}</div>
+    </div>
+    <div class="frow two">
+      <div class="fgroup">{{ form.category.label_tag }}{{ form.category }}{{ form.category.errors }}</div>
+      <div class="fgroup">{{ form.place_type.label_tag }}{{ form.place_type }}{{ form.place_type.errors }}
+        <small class="help">{{ form.place_type.help_text }}</small></div>
+    </div>
+    <datalist id="place-types">
+      {% for t in types %}<option value="{{ t }}">{% endfor %}
+    </datalist>
+    <div class="fgroup">{{ form.description.label_tag }}{{ form.description }}{{ form.description.errors }}</div>
+
+    <h2 class="form-section">Image</h2>
+    <div class="fgroup">{{ form.image_url.label_tag }}{{ form.image_url }}{{ form.image_url.errors }}
+      <small class="help">Paste a URL — the preview updates live.</small></div>
+
+    <div class="form-foot">
+      <button class="btn primary" type="submit">{% if obj %}Save changes{% else %}Create attraction{% endif %}</button>
+      {% if obj %}
+      <button class="btn danger ghost-danger" type="submit"
+              form="delete-form">Delete attraction</button>
+      {% endif %}
+    </div>
+  </form>
+
+  <aside class="form-side">
+    <div class="card">
+      <header class="card-head"><h2>Preview</h2></header>
+      <img id="img-preview" class="img-preview" alt="Image preview"
+           src="{% if obj %}{{ obj.thumb }}{% endif %}"
+           {% if not obj %}style="display:none"{% endif %}>
+      <p class="dim" id="img-preview-empty" {% if obj %}style="display:none"{% endif %}>No image yet.</p>
+    </div>
+
+    {% if obj %}
+    <div class="card">
+      <header class="card-head">
+        <h2>Ratings</h2>
+        {% if obj.avg %}<span class="pill {% if obj.avg >= 4 %}good{% elif obj.avg >= 3 %}mid{% else %}low{% endif %}">{{ obj.avg }} &#9733; · {{ obj.n }}</span>{% endif %}
+      </header>
+      {% if obj.n %}
+      <div class="bars">
+        {% for s, count, pct in breakdown %}
+        <div class="bar-row">
+          <span class="bar-lbl">{{ s }} &#9733;</span>
+          <span class="bar-track"><span class="bar-fill" style="width:{{ pct }}%"></span></span>
+          <span class="bar-val">{{ count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <ul class="feed compact">
+        {% for r in recent %}
+        <li>
+          <span class="feed-text">
+            {% if r.account %}{{ r.account.username }} <span class="tag teal">app</span>
+            {% elif r.visitor %}{{ r.visitor.name }}{% endif %}
+          </span>
+          <span class="pill gold">{{ r.rating }} &#9733;</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="dim">No ratings yet.</p>{% endif %}
+    </div>
+    {% endif %}
+  </aside>
+</div>
+
+{% if obj %}
+<form id="delete-form" method="post" action="{% url 'panel:attraction_delete' obj.id %}"
+      data-confirm="Delete “{{ obj.name }}”? All of its ratings will be deleted too.">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% endblock %}

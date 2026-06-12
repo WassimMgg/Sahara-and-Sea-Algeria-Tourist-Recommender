@@ -1,0 +1,166 @@
+{% extends "panel/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block eyebrow %}Overview{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="{% url 'panel:recommender' %}">Engine: {{ active_algo.label }}</a>
+<a class="btn primary" href="{% url 'panel:attraction_add' %}">+ New attraction</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- KPI cards -->
+<section class="kpis reveal">
+  <article class="kpi">
+    <span class="kpi-ico terra">
+      <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
+    </span>
+    <div><strong data-countup>{{ stat_attractions }}</strong><span>Attractions</span></div>
+    <a href="{% url 'panel:attractions' %}" class="kpi-go" aria-label="Manage attractions">&rarr;</a>
+  </article>
+  <article class="kpi">
+    <span class="kpi-ico gold">
+      <svg viewBox="0 0 24 24"><path d="m12 17.3 6.2 3.7-1.7-7 5.5-4.7-7.2-.6L12 2 9.2 8.7 2 9.3l5.5 4.7-1.7 7L12 17.3Z"/></svg>
+    </span>
+    <div><strong data-countup>{{ stat_ratings }}</strong>
+      <span>Ratings <small>· {{ stat_ratings_app }} in-app / {{ stat_ratings_hist }} historical</small></span></div>
+    <a href="{% url 'panel:ratings' %}" class="kpi-go" aria-label="Manage ratings">&rarr;</a>
+  </article>
+  <article class="kpi">
+    <span class="kpi-ico teal">
+      <svg viewBox="0 0 24 24"><path d="M16 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 16 11Zm-8 0a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 8 11Zm0 2c-2.7 0-8 1.3-8 4v3h16v-3c0-2.7-5.3-4-8-4Zm8 0h-.9a5.5 5.5 0 0 1 2.9 4v3h6v-3c0-2.7-5.3-4-8-4Z"/></svg>
+    </span>
+    <div><strong data-countup>{{ stat_visitors }}</strong><span>Historical visitors</span></div>
+    <a href="{% url 'panel:visitors' %}" class="kpi-go" aria-label="Manage visitors">&rarr;</a>
+  </article>
+  <article class="kpi">
+    <span class="kpi-ico ink">
+      <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5Z"/></svg>
+    </span>
+    <div><strong data-countup>{{ stat_accounts }}</strong><span>App accounts</span></div>
+    <a href="{% url 'panel:users' %}" class="kpi-go" aria-label="Manage accounts">&rarr;</a>
+  </article>
+  <article class="kpi spotlight">
+    <div><strong>{{ stat_avg }} <em>&#9733;</em></strong><span>Average rating across the catalogue</span></div>
+  </article>
+</section>
+
+<!-- charts -->
+<section class="grid-2 reveal">
+  <article class="card">
+    <header class="card-head">
+      <h2>Rating distribution</h2>
+      <span class="card-note">all {{ stat_ratings }} ratings, rounded to stars</span>
+    </header>
+    <div class="chart-box"><canvas id="chart-dist"></canvas></div>
+  </article>
+  <article class="card">
+    <header class="card-head">
+      <h2>Average score by place type</h2>
+      <span class="card-note">bubble size&nbsp;= number of ratings</span>
+    </header>
+    <div class="chart-box tall"><canvas id="chart-types"></canvas></div>
+  </article>
+</section>
+
+<!-- lists + activity -->
+<section class="grid-3 reveal">
+  <article class="card">
+    <header class="card-head"><h2>Top rated</h2></header>
+    <ol class="ranking">
+      {% for a, avg in top_rated %}
+      <li>
+        <a href="{% url 'panel:attraction_edit' a.id %}">{{ a.name }}</a>
+        <span class="rank-meta">{{ a.n }} rating{{ a.n|pluralize }}</span>
+        <span class="pill {% if avg >= 4 %}good{% elif avg >= 3 %}mid{% else %}low{% endif %}">{{ avg }} &#9733;</span>
+      </li>
+      {% empty %}<li class="empty">No ratings yet.</li>{% endfor %}
+    </ol>
+  </article>
+
+  <article class="card">
+    <header class="card-head"><h2>Most rated</h2></header>
+    <ol class="ranking">
+      {% for a in most_rated %}
+      <li>
+        <a href="{% url 'panel:attraction_edit' a.id %}">{{ a.name }}</a>
+        <span class="pill ink">{{ a.n }}</span>
+      </li>
+      {% empty %}<li class="empty">No attractions yet.</li>{% endfor %}
+    </ol>
+  </article>
+
+  <article class="card">
+    <header class="card-head"><h2>Latest in-app ratings</h2></header>
+    <ul class="feed">
+      {% for r in recent_ratings %}
+      <li>
+        <span class="feed-avatar">{{ r.account.username|first|upper }}</span>
+        <span class="feed-text"><strong>{{ r.account.username }}</strong> rated
+          <a href="{% url 'panel:attraction_edit' r.attraction_id %}">{{ r.attraction.name }}</a></span>
+        <span class="pill gold">{{ r.rating }} &#9733;</span>
+      </li>
+      {% empty %}<li class="empty">No in-app ratings yet.</li>{% endfor %}
+    </ul>
+  </article>
+</section>
+
+{{ chart_dist|json_script:"data-dist" }}
+{{ chart_types|json_script:"data-types" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const dist  = JSON.parse(JSON.parse(document.getElementById("data-dist").textContent));
+  const types = JSON.parse(JSON.parse(document.getElementById("data-types").textContent));
+  const ink = "#2a2118", muted = "#6b5d4d", line = "#e2d4bf";
+  Chart.defaults.font.family = "'Outfit', sans-serif";
+  Chart.defaults.color = muted;
+
+  new Chart(document.getElementById("chart-dist"), {
+    type: "doughnut",
+    data: {
+      labels: dist.labels,
+      datasets: [{
+        data: dist.counts,
+        backgroundColor: ["#a8472a", "#d99a2b", "#e9c46a", "#5aa39f", "#1f6f6b"],
+        borderColor: "#fffaf2", borderWidth: 3, hoverOffset: 10,
+      }],
+    },
+    options: {
+      maintainAspectRatio: false, cutout: "62%",
+      plugins: { legend: { position: "right", labels: { boxWidth: 12, boxHeight: 12, padding: 14 } } },
+      animation: { animateRotate: true, duration: 900 },
+    },
+  });
+
+  new Chart(document.getElementById("chart-types"), {
+    type: "bar",
+    data: {
+      labels: types.labels,
+      datasets: [{
+        label: "Average rating",
+        data: types.avgs,
+        backgroundColor: types.avgs.map(v => v >= 4 ? "#1f6f6b" : v >= 3 ? "#d99a2b" : "#a8472a"),
+        borderRadius: 6, maxBarThickness: 22,
+      }],
+    },
+    options: {
+      indexAxis: "y", maintainAspectRatio: false,
+      scales: {
+        x: { min: 0, max: 5, grid: { color: line }, ticks: { stepSize: 1 } },
+        y: { grid: { display: false }, ticks: { color: ink } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { afterLabel: c => `${types.counts[c.dataIndex]} ratings` } },
+      },
+    },
+  });
+});
+</script>
+{% endblock %}

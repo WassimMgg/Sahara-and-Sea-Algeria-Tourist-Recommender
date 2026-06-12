@@ -1,0 +1,59 @@
+{% extends "panel/base.html" %}
+
+{% block title %}{% if obj %}{{ obj.name }}{% else %}New visitor{% endif %}{% endblock %}
+{% block eyebrow %}Community · visitors{% endblock %}
+{% block heading %}{% if obj %}Edit “{{ obj.name }}”{% else %}New visitor{% endif %}{% endblock %}
+
+{% block actions %}
+<a class="btn ghost" href="{% url 'panel:visitors' %}">&larr; Back to list</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-layout reveal">
+
+  <form method="post" class="card form-card">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+
+    <h2 class="form-section">Visitor profile</h2>
+    <div class="frow two">
+      <div class="fgroup">{{ form.id.label_tag }}{{ form.id }}{{ form.id.errors }}</div>
+      <div class="fgroup">{{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}</div>
+    </div>
+    <div class="frow two">
+      <div class="fgroup">{{ form.age.label_tag }}{{ form.age }}{{ form.age.errors }}</div>
+      <div class="fgroup">{{ form.gender.label_tag }}{{ form.gender }}{{ form.gender.errors }}</div>
+    </div>
+    <div class="fgroup">{{ form.home_country.label_tag }}{{ form.home_country }}{{ form.home_country.errors }}</div>
+
+    <div class="form-foot">
+      <button class="btn primary" type="submit">{% if obj %}Save changes{% else %}Create visitor{% endif %}</button>
+      {% if obj %}
+      <button class="btn danger ghost-danger" type="submit" form="delete-form">Delete visitor</button>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if obj %}
+  <aside class="form-side">
+    <div class="card">
+      <header class="card-head"><h2>Recent ratings</h2></header>
+      <ul class="feed compact">
+        {% for r in recent %}
+        <li>
+          <span class="feed-text"><a href="{% url 'panel:attraction_edit' r.attraction_id %}">{{ r.attraction.name }}</a></span>
+          <span class="pill gold">{{ r.rating }} &#9733;</span>
+        </li>
+        {% empty %}<li class="empty">No ratings from this visitor.</li>{% endfor %}
+      </ul>
+    </div>
+  </aside>
+  {% endif %}
+</div>
+
+{% if obj %}
+<form id="delete-form" method="post" action="{% url 'panel:visitor_delete' obj.id %}"
+      data-confirm="Delete visitor “{{ obj.name }}”? All of their ratings will be deleted too.">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% endblock %}

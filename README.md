@@ -27,13 +27,15 @@ course (Białystok University of Technology).
 - 5-fold cross-validated evaluation: RMSE, MAE, Precision@5, Recall@5
 - All models trained and bundled; the **active one is switchable at runtime**
 
-**Admin panel** (`/admin/`)
-- Custom-branded UI: fixed sidebar, light theme, KPI cards, CSS charts
-- Animated dashboard (count-up stats, growing bars) with quick actions
+**Admin panel** (`/admin/`) — hand-built from scratch (no `django.contrib.admin`)
+- Branded staff-only UI: dark command-rail sidebar, parchment theme,
+  dedicated login page, animated KPI cards and Chart.js dashboards
 - **Recommender engine page**: compare every algorithm's metrics and switch
   the one being served with one click — no restart, no redeploy
-- Attractions with image previews, per-attraction rating breakdown chart,
-  inline ratings, quick-edit fields, CSV export on every model
+- Full CRUD for attractions, ratings, visitors and accounts: search, filters,
+  sorting, pagination and CSV export on every list
+- Live image preview + per-attraction rating breakdown, click-to-edit star
+  ratings directly in the list, quick active/staff toggles on accounts
 
 ---
 
@@ -42,7 +44,7 @@ course (Białystok University of Technology).
 | Layer      | Technology | Used for |
 |------------|------------|----------|
 | Language   | Python 3.10+ | everything backend & ML |
-| Backend    | Django 5/6 | routing, ORM, auth, admin, templates |
+| Backend    | Django 5/6 | routing, ORM, auth, templates |
 | Database   | SQLite (dev) | attractions, visitors, ratings, settings |
 | ML / data  | NumPy, pandas | matrices, similarities, SGD, cleaning |
 | Frontend   | HTML + CSS + vanilla JS | no framework, no build step |
@@ -68,17 +70,20 @@ tourist-recommender/
 │   ├── ratings_clean.csv      # generated
 │   ├── models.pkl             # generated — every trained model + default key
 │   └── metrics.json           # generated — CV metrics for each algorithm
-├── api/                       # the Django app
+├── api/                       # the Django app (public site + JSON API)
 │   ├── models.py              # Attraction, Visitor, Rating, RecommenderSetting
 │   ├── services.py            # loads bundle, switching API, recommend_for()
 │   ├── views.py               # page views + JSON API
-│   ├── admin.py               # custom admin site, dashboard, recommender page
 │   ├── management/commands/   # seed_db, create_admin
 │   └── migrations/
+├── panel/                     # the hand-built admin panel (/admin/)
+│   ├── views.py               # dashboard, CRUD, users, recommender control
+│   ├── forms.py               # ModelForms for every panel page
+│   └── urls.py                # namespaced "panel:" routes
 ├── recommender_project/       # Django project (settings, urls, wsgi/asgi)
 ├── frontend/
-│   ├── templates/             # base + pages + admin/ overrides
-│   └── static/                # css/, js/, admin_custom/
+│   ├── templates/             # base + pages + panel/ (admin templates)
+│   └── static/                # css/, js/, panel/ (admin css + js)
 ├── manage.py
 ├── requirements.txt
 └── README.md                  # you are here
@@ -214,13 +219,16 @@ click the stars on any card; the *Picked for you* strip and the home page
 update on the next load. *Used model* explains, in plain language, every
 algorithm with its cross-validated metrics and shows which one is live.
 
-**Admin flow** — log in at `/admin/`:
+**Admin flow** — log in at `/admin/` (staff accounts only):
 - *Dashboard*: animated KPI cards, rating-distribution and avg-by-type charts,
-  top/most-rated, recent app ratings, quick actions.
+  top/most-rated lists and the latest in-app ratings.
 - *Recommender*: the control room — compare all algorithms and switch the live
   one (see §4).
-- *Attractions / Ratings / Visitors*: full CRUD with image previews, rating
-  breakdown per attraction, inline editing and **Export selected to CSV**.
+- *Attractions / Ratings / Visitors*: full CRUD with search, filters, sorting,
+  pagination, live image preview, per-attraction rating breakdown,
+  click-to-edit stars in the ratings list and **Export CSV** everywhere.
+- *Accounts*: create/edit users, reset passwords, quick active/staff toggles
+  (with self-lockout protection).
 
 ---
 
@@ -257,7 +265,7 @@ admin *Recommender* page → *Reload models from disk*.
 |---|---|
 | `no such table` errors | run `python manage.py migrate` then `seed_db` |
 | Images don't load | the URLs point at Wikimedia `Special:FilePath`; re-run `seed_db` if you changed `attractions.csv` (the app reads the DB, not the CSV) |
-| Admin looks unstyled | hard-refresh (Ctrl/Cmd-Shift-R) to reload `admin_custom/admin.css` |
+| Admin looks unstyled | hard-refresh (Ctrl/Cmd-Shift-R) to reload `panel/panel.css` |
 | `FileNotFoundError: models.pkl` | run `python ml/train.py` first |
 | Switched algorithm “didn't change” the list | with 15 items and dense crowd favourites, several algorithms agree on the top picks — check `/model/` to confirm which is active |
 

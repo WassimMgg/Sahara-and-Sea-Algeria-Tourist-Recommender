@@ -3,7 +3,18 @@
     "allow": [
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Mgg\\\\Desktop\\\\Academics\\\\1M-ICST\\\\S2\\\\Recommender_Systems\\\\Project\\\\tourist-recommender\" -Recurse -Depth 2)",
       "Bash(Select-Object FullName, PSIsContainer)",
-      "Bash(Format-Table -AutoSize)"
+      "Bash(Format-Table -AutoSize)",
+      "Bash(python manage.py check)",
+      "Bash(claude update *)",
+      "Bash(npm list *)",
+      "Bash(npm install *)",
+      "Bash(npm view *)",
+      "Bash(./myenv/Scripts/python.exe manage.py check)",
+      "Bash(./myenv/Scripts/python.exe manage.py shell -c \"from django.test import Client; c=Client\\(\\); r=c.get\\('/'\\); print\\('HOME', r.status_code\\)\")",
+      "Bash(./myenv/Scripts/python.exe manage.py shell -c ' *)",
+      "Bash(./myenv/Scripts/python.exe -c ' *)",
+      "Bash(./myenv/Scripts/python.exe -c \"import unfold, os; print\\(unfold.__version__ if hasattr\\(unfold,'__version__'\\) else 'n/a'\\); print\\(os.path.dirname\\(unfold.__file__\\)\\)\")",
+      "Bash(./myenv/Scripts/python.exe manage.py findstatic unfold/js/app.js unfold/css/styles.css admin_custom/admin.css)"
     ]
   }
 }
