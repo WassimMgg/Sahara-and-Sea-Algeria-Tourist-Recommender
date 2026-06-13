@@ -1,285 +1,448 @@
-# Sahara & Sea — Tourist Attraction Recommender for Algeria
+<div align="center">
 
-A full-stack web application that recommends Algerian tourist attractions
-(Roman ruins, Saharan landscapes, casbahs, coastlines…) using **collaborative
-filtering implemented from scratch with NumPy** — no recommender libraries.
-Users sign up, rate places, and watch their recommendations adapt instantly.
-Administrators get a custom dashboard and can **switch the serving algorithm
-live** from the admin panel.
+# 🏜️ Sahara & Sea
+### A Tourist Attraction Recommender for Algeria
 
-Built as a university project for the *Recommender Systems / Data Exploration*
-course (Białystok University of Technology).
+*Sign up, rate the places you love, and watch your personalized travel picks appear instantly.*
 
----
+<br>
 
-## 1. Features
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-5.x-092E20?style=for-the-badge&logo=django&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-from%20scratch-013243?style=for-the-badge&logo=numpy&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-database-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![No Frameworks](https://img.shields.io/badge/Frontend-Vanilla%20JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 
-**Public site**
-- Editorial-style multi-page UI (Home, Places, Search, Used model, About)
-- Account signup / login / logout (Django auth, hashed passwords, CSRF)
-- Rate any attraction 1–5 ★ — recommendations refresh immediately
-- Cold-start handling: new users see non-personalized crowd favourites
-- Explanations on every recommendation (“Matches your taste for Roman Ruins”)
-- Live search + filter by place type; fully responsive; reduced-motion friendly
+<br>
 
-**Recommendation engine (all from scratch)**
-- 7 algorithms across the 4 course families (see §4)
-- 5-fold cross-validated evaluation: RMSE, MAE, Precision@5, Recall@5
-- All models trained and bundled; the **active one is switchable at runtime**
+🎓 *Built for the Recommender Systems course — every algorithm written by hand, no ML libraries.*
 
-**Admin panel** (`/admin/`) — hand-built from scratch (no `django.contrib.admin`)
-- Branded staff-only UI: dark command-rail sidebar, parchment theme,
-  dedicated login page, animated KPI cards and Chart.js dashboards
-- **Recommender engine page**: compare every algorithm's metrics and switch
-  the one being served with one click — no restart, no redeploy
-- Full CRUD for attractions, ratings, visitors and accounts: search, filters,
-  sorting, pagination and CSV export on every list
-- Live image preview + per-attraction rating breakdown, click-to-edit star
-  ratings directly in the list, quick active/staff toggles on accounts
+</div>
 
 ---
 
-## 2. Technology stack
+## 📖 What is this project?
 
-| Layer      | Technology | Used for |
-|------------|------------|----------|
-| Language   | Python 3.10+ | everything backend & ML |
-| Backend    | Django 5/6 | routing, ORM, auth, templates |
-| Database   | SQLite (dev) | attractions, visitors, ratings, settings |
-| ML / data  | NumPy, pandas | matrices, similarities, SGD, cleaning |
-| Frontend   | HTML + CSS + vanilla JS | no framework, no build step |
-| Fonts      | Fraunces + Outfit (Google Fonts) | typography |
-| Images     | Wikimedia Commons (`Special:FilePath`) | attraction photos |
+Imagine a travel app that learns your taste. You rate a few Algerian attractions
+— the Roman ruins of Timgad, the dunes of Tassili n'Ajjer, the old Casbah of
+Algiers — and it figures out **what else you'd probably love**, ranking the rest
+of the country just for you.
 
-No external CSS/JS frameworks, no recommender libraries — by design, so every
-moving part is inspectable for the course.
+That's **Sahara & Sea**. It's a complete, end-to-end recommender system:
+
+- 🧹 It takes **messy real-world rating data** and cleans it up.
+- 🧠 It compares **10 recommendation algorithms** (all written from scratch with NumPy).
+- 🏆 It picks the best one and serves it through a **live website**.
+- ⚙️ An **admin panel** lets you switch the live algorithm with one click — no restart.
+
+> **New to recommender systems?** No problem. This README explains everything from
+> the ground up. Start at [The big idea](#-the-big-idea-in-60-seconds) and read down.
 
 ---
 
-## 3. Project structure
+## 🖼️ Screenshots
+
+### 🌍 The public site
+
+<div align="center">
+
+**Home — "Find the places made for you"**
+![Home page](docs/screenshots/home.png)
+
+**🎯 "Picked for you" — personalized recommendations that update the moment you rate**
+![Recommendations strip](docs/screenshots/recommendations.png)
+
+</div>
+
+| 🔍 Search & browse | 📊 How the picks are made |
+|:---:|:---:|
+| ![Search page](docs/screenshots/search.png) | ![Model page](docs/screenshots/model.png) |
+| *Search + filter the whole catalogue* | *Every algorithm explained, with its scores* |
+
+| 🔑 Log in | ✍️ Sign up |
+|:---:|:---:|
+| ![Login page](docs/screenshots/login.png) | ![Signup page](docs/screenshots/signup.png) |
+| *Welcome back* | *Create an account in seconds* |
+
+### ⚙️ The hand-built admin panel
+
+<div align="center">
+
+**Dashboard — KPI cards, rating distribution & average-score-by-type charts**
+![Admin dashboard](docs/screenshots/admin-dashboard.png)
+
+</div>
+
+| 🔀 Switch the live algorithm | 📈 Cross-validated comparison |
+|:---:|:---:|
+| ![Recommender control](docs/screenshots/admin-recommender.png) | ![Comparison table](docs/screenshots/admin-comparison.png) |
+| *Pick a card → Apply → it's live, no restart* | *All 10 algorithms, every metric, side by side* |
+
+| 🏛️ Attractions | ⭐ Ratings | 👥 Visitors |
+|:---:|:---:|:---:|
+| ![Admin attractions](docs/screenshots/admin-attractions.png) | ![Admin ratings](docs/screenshots/admin-ratings.png) | ![Admin visitors](docs/screenshots/admin-visitors.png) |
+| *Search, filter, sort, CSV export* | *Click-to-edit stars inline* | *Manage the historical raters* |
+
+---
+
+## 💡 The big idea (in 60 seconds)
+
+A **recommender system** answers one question: *"Given what this person liked
+before, what should we show them next?"*
+
+The most popular technique is **collaborative filtering**, and it comes in two flavors:
+
+```
+👥 USER-USER:  "People who rated places like YOU did, also loved Timgad."
+                → Find your taste-twins, recommend what they enjoyed.
+
+🏛️ ITEM-ITEM:  "You loved Tipaza. Djemila is very similar, so try that."
+                → Find places similar to the ones you already rated highly.
+```
+
+There's also **content-based** filtering ("this place's *description* is similar to
+ones you liked") and **matrix factorization** (find hidden "taste dimensions" with
+math). This project implements **all of them** — and even a **hybrid** that blends two.
+
+The clever part: when you rate something, we **don't retrain** anything. Your new
+rating is folded into the math on the spot, so recommendations refresh instantly. ⚡
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🌍 Public site
+- Multi-page UI (Home, Places, Search, Model, About)
+- Sign up / log in (hashed passwords, CSRF-safe)
+- Rate any place 1–5★ → instant recommendations
+- "Cold start": new users see crowd favorites
+- Plain-English reasons on every pick
+- Search, type filters, pagination, skeletons
+- Fully responsive + reduced-motion friendly
+
+</td>
+<td width="33%" valign="top">
+
+### 🧠 Recommender engine
+- **10 algorithms**, all from scratch (NumPy)
+- 5-fold cross-validation
+- Metrics: RMSE, MAE, Precision@5, Recall@5, **NDCG@5**
+- Diversity filter (no 5 identical place types)
+- Per-user caching for speed
+- The **live algorithm is switchable** at runtime
+
+</td>
+<td width="33%" valign="top">
+
+### ⚙️ Admin panel
+- 100% hand-built (no `django.contrib.admin`)
+- Dashboard: KPI cards + Chart.js charts
+- **Switch the live algorithm** in one click
+- Full CRUD: attractions, ratings, visitors, users
+- Search, sort, filter, paginate, **CSV export**
+- Live image preview + rating breakdowns
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🏗️ How it's built (architecture)
+
+The project has **three layers**. Two of them run *offline* (preparing the data and
+training models), and one runs *live* (the website you interact with).
+
+```mermaid
+flowchart LR
+    subgraph OFFLINE["🔧 OFFLINE — run once / when data changes"]
+        RAW["📄 ratings_raw.csv<br/>(messy data)"]
+        CLEAN["🧹 clean_data.py"]
+        TIDY["📄 ratings_clean.csv"]
+        TRAIN["🧠 train.py<br/>(5-fold CV)"]
+        PKL["📦 models.pkl<br/>+ metrics.json"]
+        RAW --> CLEAN --> TIDY --> TRAIN --> PKL
+    end
+
+    subgraph LIVE["🌐 LIVE — the running app"]
+        DB[("🗄️ SQLite DB")]
+        DJANGO["⚙️ Django backend<br/>(services + views)"]
+        BROWSER["💻 Browser<br/>HTML / CSS / JS"]
+        DJANGO <--> DB
+        DJANGO <-->|"JSON API"| BROWSER
+    end
+
+    TIDY -.->|"seed_db"| DB
+    PKL -.->|"loaded at startup"| DJANGO
+```
+
+**In words:**
+
+1. **🧹 Clean** — `ml/clean_data.py` turns the messy raw ratings into a tidy file.
+2. **🧠 Train** — `ml/train.py` evaluates all 10 algorithms, then trains and saves them.
+3. **🌱 Seed** — `seed_db` loads the data into a fast SQLite database (done once).
+4. **🌐 Serve** — Django loads the trained models and powers the website + JSON API.
+5. **💻 Interact** — your browser fetches data and posts ratings via small JSON calls.
+
+---
+
+## 🧩 Project structure
 
 ```
 tourist-recommender/
-├── data/
-│   ├── attractions.csv        # 15 attractions (id, name, city, region, …)
-│   └── ratings_raw.csv        # ~635 messy historical ratings
-├── ml/
-│   ├── clean_data.py          # raw CSV -> ratings_clean.csv
-│   ├── recommender.py         # ALL algorithms, from scratch (registry: ALL_MODELS)
-│   ├── train.py               # evaluation + trains & bundles every model
-│   ├── ratings_clean.csv      # generated
-│   ├── models.pkl             # generated — every trained model + default key
-│   └── metrics.json           # generated — CV metrics for each algorithm
-├── api/                       # the Django app (public site + JSON API)
-│   ├── models.py              # Attraction, Visitor, Rating, RecommenderSetting
-│   ├── services.py            # loads bundle, switching API, recommend_for()
-│   ├── views.py               # page views + JSON API
-│   ├── management/commands/   # seed_db, create_admin
-│   └── migrations/
-├── panel/                     # the hand-built admin panel (/admin/)
-│   ├── views.py               # dashboard, CRUD, users, recommender control
-│   ├── forms.py               # ModelForms for every panel page
-│   └── urls.py                # namespaced "panel:" routes
-├── recommender_project/       # Django project (settings, urls, wsgi/asgi)
-├── frontend/
-│   ├── templates/             # base + pages + panel/ (admin templates)
-│   └── static/                # css/, js/, panel/ (admin css + js)
+│
+├── 📂 data/                     # The raw ingredients
+│   ├── attractions.csv          #   15 Algerian attractions
+│   └── ratings_raw.csv          #   ~635 messy historical ratings
+│
+├── 📂 ml/                       # 🧠 The brain (pure Python, no Django)
+│   ├── clean_data.py            #   messy CSV  →  clean CSV
+│   ├── recommender.py           #   ⭐ ALL 10 algorithms live here
+│   ├── train.py                 #   evaluate + train + save every model
+│   ├── test_recommender.py      #   ✅ 27 unit tests
+│   ├── models.pkl               #   (generated) the trained models
+│   └── metrics.json             #   (generated) the comparison scores
+│
+├── 📂 api/                      # ⚙️ The Django app (site + JSON API)
+│   ├── models.py                #   database tables
+│   ├── services.py              #   bridges trained models ↔ database
+│   ├── views.py                 #   page views + API endpoints
+│   └── management/commands/     #   seed_db, create_admin
+│
+├── 📂 panel/                    # 🛠️ The hand-built admin panel (/admin/)
+│
+├── 📂 frontend/                 # 🎨 What you see
+│   ├── templates/               #   HTML pages
+│   └── static/                  #   CSS + JavaScript
+│
+├── 📂 recommender_project/      # Django config (settings, urls)
 ├── manage.py
-├── requirements.txt
-└── README.md                  # you are here
+└── requirements.txt
 ```
+
+> 💡 **Where to look first:** the heart of the project is
+> [`ml/recommender.py`](ml/recommender.py) — that's where every algorithm is implemented.
 
 ---
 
-## 4. The recommendation algorithms
+## 🛠️ Technologies used
 
-All implemented in `ml/recommender.py`, mapped to the course sections:
+| Layer | Tech | Why |
+|---|---|---|
+| 🐍 Language | **Python 3.10+** | Backend + machine learning |
+| ⚙️ Backend | **Django 5** | Routing, database (ORM), auth, templates |
+| 🗄️ Database | **SQLite** | Stores attractions, ratings, users (zero setup) |
+| 🧮 ML / data | **NumPy + pandas** | Matrices, similarities, training, cleaning |
+| 🎨 Frontend | **HTML + CSS + vanilla JS** | No framework, no build step — easy to read |
+| 📊 Charts | **Chart.js** | Admin dashboard visualizations |
 
-| # | Course family | Implementation (registry key) |
-|---|---------------|-------------------------------|
-| 1 | **Non-personalized — mean calculations** | `pop_mean` damped item means · `baseline` global mean + user/item bias |
-| 2 | **Similarity calculations** | cosine (mean-centered/adjusted) and Pearson (co-rated) — pluggable into both CF families |
-| 3 | **User-user CF** | `user_cf_cosine`, `user_cf_pearson` |
-| 3 | **Item-item CF** | `item_cf_cosine`, `item_cf_pearson` |
-| 4 | **Evaluation** | 5-fold CV in `ml/train.py` (RMSE, MAE, Precision@5, Recall@5) |
-| + | Bonus | `mf` matrix factorization (SGD latent factors, ridge fold-in for new users) |
+> 🚫 **On purpose:** no recommender libraries (like `surprise` or `scikit-learn`)
+> and no frontend frameworks. Every moving part is hand-written so it can be
+> studied and explained — which is the whole point of the course.
 
-Every model shares one interface, so they are interchangeable at runtime:
+---
+
+## 🧠 The 10 algorithms
+
+All implemented in [`ml/recommender.py`](ml/recommender.py), grouped by family:
+
+| Family | Algorithm(s) | One-line idea |
+|---|---|---|
+| 📊 **Non-personalized** | Mean ratings · Bias baseline | Same ranking for everyone (great as a reference point) |
+| 👥 **User-user CF** | cosine · Pearson | "People with your taste also liked…" |
+| 🏛️ **Item-item CF** | cosine · Pearson | "Similar to places you rated highly" |
+| 🔢 **Matrix factorization** | SGD · ALS | Learns hidden "taste dimensions" with math |
+| 📝 **Content-based** | TF-IDF | Matches the *text* (name, category, description) |
+| 🔀 **Hybrid** | Item-item + Content | Blends 65% behavior + 35% text similarity |
+
+Every model shares the **same simple interface**, so they're interchangeable:
 
 ```python
-model.fit(df)                                  # df: user_id, attraction_id, rating
-model.predict(user_id, item_id)                # known training user
-model.predict_from_ratings(item_id, ratings)   # NEW user: {item_id: rating}
-model.recommend(ratings, top_n=5)              # -> [(item_id, score), …]
+model.fit(df)                                  # learn from a table of ratings
+model.predict_from_ratings(item_id, ratings)   # score one place for a NEW user
+model.recommend(ratings, top_n=5)              # → [(place_id, score), ...]
 ```
 
-### Current evaluation results (5-fold CV, 576 ratings, 50 users × 15 places)
+### 📈 Current scores (5-fold cross-validation · 576 ratings · 50 users × 15 places)
 
-| Algorithm | RMSE ↓ | MAE ↓ | P@5 ↑ | R@5 ↑ |
-|---|---|---|---|---|
-| Mean ratings (non-pers.) | 0.903 | 0.732 | 0.381 | 0.816 |
-| Bias baseline (non-pers.) | 0.908 | 0.730 | 0.381 | 0.816 |
-| **User-user CF · cosine** ← default | **0.922** | 0.744 | **0.389** | **0.840** |
-| User-user CF · Pearson | 0.924 | 0.749 | 0.390 | 0.840 |
-| Item-item CF · Pearson | 0.969 | 0.777 | 0.382 | 0.817 |
-| Matrix factorization | 0.993 | 0.810 | 0.379 | 0.813 |
-| Item-item CF · cosine | 1.051 | 0.845 | 0.386 | 0.831 |
+| Algorithm | RMSE ↓ | MAE ↓ | P@5 ↑ | R@5 ↑ | NDCG@5 ↑ |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Mean ratings *(non-pers.)* | 0.903 | 0.732 | 0.381 | 0.816 | 0.619 |
+| Bias baseline *(non-pers.)* | 0.908 | 0.730 | 0.381 | 0.816 | 0.619 |
+| **User-user CF · cosine** ⭐ *default* | **0.922** | 0.744 | 0.389 | **0.840** | **0.645** |
+| User-user CF · Pearson | 0.924 | 0.749 | 0.390 | 0.840 | 0.645 |
+| Hybrid (Item-item + content) | 0.979 | 0.795 | 0.387 | 0.834 | 0.635 |
+| Matrix factorization · SGD | 0.993 | 0.810 | 0.379 | 0.813 | 0.626 |
+| Content-based · TF-IDF | 0.995 | 0.785 | 0.373 | 0.793 | 0.617 |
+| Item-item CF · Pearson | 0.969 | 0.777 | 0.382 | 0.817 | 0.630 |
+| Item-item CF · cosine | 1.051 | 0.845 | 0.386 | 0.831 | 0.634 |
+| Matrix factorization · ALS | 1.332 | 1.054 | 0.374 | 0.800 | 0.613 |
 
-**Why is the default a personalized model when the plain mean has the lowest
-RMSE?** Because the non-personalized models rank attractions identically for
-every user — good *prediction* numbers, zero *personalization*. The default is
-therefore the most efficient **personalized** algorithm (lowest RMSE among
-them: user-user cosine), which also happens to win on both ranking metrics.
-This trade-off is exactly the point of the evaluation section of the course.
+<details>
+<summary>🤔 <b>Wait — the plain "Mean" model has the best RMSE. Why isn't it the default?</b></summary>
 
-### Switching the algorithm
+<br>
 
-Three equivalent ways:
+Because a low error score can be **misleading**. The non-personalized models
+(Mean, Baseline) give the **exact same ranking to everyone** — they predict ratings
+well *on average*, but they don't actually personalize anything.
 
-1. **Admin UI (recommended)** — `/admin/` → *Recommender* in the sidebar →
-   pick a card → **Apply selected algorithm**. Takes effect instantly.
-2. **Python API** —
-   ```python
-   from api import services
-   services.set_active_algorithm("item_cf_pearson")   # any registry key
-   services.get_active_key()                          # check what's serving
-   services.available_algorithms()                    # metadata + metrics
-   ```
-3. **Database** — the choice is one row in the `RecommenderSetting` table
-   (`key="active_algorithm"`); deleting it falls back to the trained default.
+So the served default is the best **personalized** model (lowest RMSE among those that
+truly tailor results: *user-user cosine*) — which also happens to win on the ranking
+metrics (Recall@5 and NDCG@5). Spotting this trade-off is exactly what the evaluation
+part of the course is about. 🎯
 
-After retraining (`python ml/train.py`) click **Reload models from disk** on
-the same admin page (or call `services.reload_models()`).
+> **What's NDCG@5?** *Normalized Discounted Cumulative Gain.* It rewards an algorithm
+> for putting the places you'll love **near the top** of the list, not just somewhere
+> in the top 5.
+
+</details>
 
 ---
 
-## 5. Data pipeline
+## 🚀 Getting started
 
-1. `data/ratings_raw.csv` is intentionally messy (≈23 spellings of countries,
-   mixed date formats, ratings like `"5 stars"`, `4,5`, blanks, out-of-range
-   values, duplicate user/place pairs).
-2. `ml/clean_data.py` normalizes countries and genders, parses 8 date formats
-   to ISO, coerces ratings to floats in [1, 5], averages duplicates →
-   **576 valid ratings** out of 635 rows → `ml/ratings_clean.csv`.
-3. `ml/train.py` evaluates all 7 algorithms (5-fold CV), retrains each on the
-   full data, and saves `models.pkl` + `metrics.json`.
-4. `manage.py seed_db` loads attractions + historical ratings into SQLite.
-5. The web app reads everything from the database; ratings made in the app are
-   stored with the user's account and folded into the model live (no retrain
-   needed for personalization — fold-in uses `predict_from_ratings`).
-
----
-
-## 6. Installation & setup
-
-Prerequisites: **Python 3.10+** and pip. (SQLite ships with Python.)
+> **Prerequisites:** Python 3.10 or newer. That's it — SQLite ships with Python.
 
 ```bash
-# 0. unzip / clone, then enter the folder
+# 1️⃣  Enter the project folder
 cd tourist-recommender
 
-# 1. (recommended) virtual environment
-python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
+# 2️⃣  Create & activate a virtual environment
+python -m venv myenv
+source myenv/Scripts/activate     # Windows (Git Bash)
+# myenv\Scripts\activate          # Windows (CMD/PowerShell)
+# source myenv/bin/activate       # macOS / Linux
 
-# 2. dependencies
+# 3️⃣  Install dependencies
 pip install -r requirements.txt
 
-# 3. data pipeline: clean the ratings, evaluate & train ALL models
-cd ml
-python clean_data.py
-python train.py                   # prints the comparison table
-cd ..
+# 4️⃣  Prepare the data & train the models
+python ml/clean_data.py           # clean the messy ratings
+python ml/train.py                # evaluate + train all 10 models
 
-# 4. database: create tables and load the data
-python manage.py migrate
-python manage.py seed_db
+# 5️⃣  Set up the database
+python manage.py migrate          # create the tables
+python manage.py seed_db          # load attractions + ratings
 
-# 5. an admin account for the panel  (admin / admin12345 — change it!)
+# 6️⃣  Create an admin account  (default: admin / admin12345 — change it!)
 python manage.py create_admin
 
-# 6. run
+# 7️⃣  Run it! 🎉
 python manage.py runserver
 ```
 
-Open **http://127.0.0.1:8000/** — sign up, rate a few places on *Places*, and
-watch *Picked for you* change. The admin panel is at
-**http://127.0.0.1:8000/admin/**.
+Then open your browser:
 
-> `create_admin` accepts `--username/--password` flags or `ADMIN_USER` /
-> `ADMIN_PASSWORD` environment variables. The standard
-> `python manage.py createsuperuser` works too.
+- 🌍 **Website** → http://127.0.0.1:8000/
+- ⚙️ **Admin panel** → http://127.0.0.1:8000/admin/
 
----
-
-## 7. Using the app
-
-**Visitor flow** — browse *Places*, use the type chips or *Search*; sign up;
-click the stars on any card; the *Picked for you* strip and the home page
-update on the next load. *Used model* explains, in plain language, every
-algorithm with its cross-validated metrics and shows which one is live.
-
-**Admin flow** — log in at `/admin/` (staff accounts only):
-- *Dashboard*: animated KPI cards, rating-distribution and avg-by-type charts,
-  top/most-rated lists and the latest in-app ratings.
-- *Recommender*: the control room — compare all algorithms and switch the live
-  one (see §4).
-- *Attractions / Ratings / Visitors*: full CRUD with search, filters, sorting,
-  pagination, live image preview, per-attraction rating breakdown,
-  click-to-edit stars in the ratings list and **Export CSV** everywhere.
-- *Accounts*: create/edit users, reset passwords, quick active/staff toggles
-  (with self-lockout protection).
+> ✅ **Want to check everything works?** Run the test suite:
+> ```bash
+> python ml/test_recommender.py     # 27 tests, should all pass
+> ```
 
 ---
 
-## 8. HTTP API (used by the frontend JS)
+## 🎮 How to use it
 
-| Endpoint | Method | Auth | Purpose |
-|---|---|---|---|
-| `/api/attractions/?q=&type=` | GET | — | list/search attractions (+my rating if logged in) |
-| `/api/recommendations/` | GET | optional | top-5 for the current user (popular if anonymous) |
-| `/api/my-ratings/` | GET | required | the logged-in user's ratings |
-| `/api/rate/` | POST JSON `{attraction_id, rating}` | required | create/update a rating, returns fresh recommendations |
+**👤 As a visitor:**
+1. Go to **Places**, browse the attractions (filter by type or search).
+2. **Sign up**, then click the ⭐ stars on any place you've visited.
+3. Watch the **"Picked for you"** strip update instantly with new recommendations.
+4. Visit **Used model** to see *which* algorithm is powering your picks and why.
 
-All POSTs require Django's CSRF token (the frontend handles this).
+**🛠️ As an admin** (`/admin/`, staff accounts only):
+1. **Dashboard** — see KPIs, rating distributions, and top attractions.
+2. **Recommender** — compare all 10 algorithms and **switch the live one** with one click.
+3. **Manage data** — full CRUD on attractions, ratings, visitors, and accounts (with CSV export).
 
 ---
 
-## 9. Management commands
+## 🔌 The JSON API
 
-| Command | What it does |
+The frontend talks to the backend through four small endpoints:
+
+| Method | Endpoint | Auth | What it does |
+|:---:|---|:---:|---|
+| `GET` | `/api/attractions/?q=&type=&limit=&offset=` | — | List / search attractions (paginated) |
+| `GET` | `/api/recommendations/?n=` | optional | Your top picks (popular ones if logged out) |
+| `GET` | `/api/my-ratings/` | ✅ | Your existing ratings (to pre-fill the stars) |
+| `POST` | `/api/rate/` | ✅ | Save a rating → returns fresh recommendations |
+
+<details>
+<summary>📬 <b>Example: what happens when you rate a place</b></summary>
+
+<br>
+
+```
+You click 4★ on "Tassili n'Ajjer"
+   │
+   ▼
+common.js  ──POST /api/rate/ {attraction_id, rating: 4}──►  Django
+                                                              │
+                                              saves your rating to the DB
+                                                              │
+                                          folds it into the live model
+                                                              │
+   ◄──────── returns your refreshed top picks ───────────────┘
+   │
+   ▼
+The "Picked for you" strip re-renders. No page reload, no retraining. ⚡
+```
+
+</details>
+
+---
+
+## 🔄 Common tasks
+
+| I want to… | Do this |
 |---|---|
-| `python manage.py seed_db` | wipe + reload attractions and historical ratings from `data/` (keeps app-user ratings) |
-| `python manage.py create_admin` | create/update a superuser non-interactively |
-| `python ml/clean_data.py` | rebuild `ratings_clean.csv` from the raw file |
-| `python ml/train.py` | re-evaluate, retrain and re-bundle all models |
-
-**Retraining workflow:** edit/extend data → `clean_data.py` → `train.py` →
-admin *Recommender* page → *Reload models from disk*.
+| ➕ Add an attraction | Add a row to `data/attractions.csv`, then `python manage.py seed_db` |
+| 🔁 Retrain the models | `python ml/clean_data.py` → `python ml/train.py` → *Reload models* in admin |
+| 🔀 Change the live algorithm | Admin → **Recommender** → pick a card → **Apply** |
+| ✅ Run the tests | `python ml/test_recommender.py` |
+| 👤 Make another admin | `python manage.py create_admin --username NAME --password PASS` |
 
 ---
 
-## 10. Troubleshooting
+## 🩹 Troubleshooting
 
-| Symptom | Fix |
+| Problem | Fix |
 |---|---|
-| `no such table` errors | run `python manage.py migrate` then `seed_db` |
-| Images don't load | the URLs point at Wikimedia `Special:FilePath`; re-run `seed_db` if you changed `attractions.csv` (the app reads the DB, not the CSV) |
-| Admin looks unstyled | hard-refresh (Ctrl/Cmd-Shift-R) to reload `panel/panel.css` |
-| `FileNotFoundError: models.pkl` | run `python ml/train.py` first |
-| Switched algorithm “didn't change” the list | with 15 items and dense crowd favourites, several algorithms agree on the top picks — check `/model/` to confirm which is active |
+| `no such table` error | Run `python manage.py migrate`, then `seed_db` |
+| `FileNotFoundError: models.pkl` | Run `python ml/train.py` first |
+| Images don't load | Re-run `seed_db` if you edited `attractions.csv` (the app reads the DB, not the CSV) |
+| Admin looks unstyled | Hard-refresh the page (Ctrl/Cmd + Shift + R) |
+| Switching algorithm "did nothing" | With only 15 places, several algorithms agree on the top picks — check `/model/` to confirm which is active |
 
 ---
 
-## 11. Production notes (beyond the course)
+## 🚢 Going to production? (beyond the course)
 
-This is a teaching project configured for local use. Before any real
-deployment: set `DEBUG = False`, move `SECRET_KEY` to an environment variable,
-restrict `ALLOWED_HOSTS`, switch SQLite → PostgreSQL, serve static files via
-`collectstatic` + WhiteNoise/Nginx, and change the default admin password.
+This is a teaching project set up for local use. Before any real deployment:
 
-## 12. Credits
+- [ ] Set `DEBUG = False` in `settings.py`
+- [ ] Move `SECRET_KEY` to an environment variable
+- [ ] Restrict `ALLOWED_HOSTS`
+- [ ] Switch SQLite → PostgreSQL
+- [ ] Serve static files via `collectstatic` + WhiteNoise/Nginx
+- [ ] Change the default admin password
 
-Data: hand-curated attraction list; photos via Wikimedia Commons
-(`Special:FilePath`, CC-licensed works by their respective photographers).
-Course: Recommender Systems, Białystok University of Technology.
+---
+
+<div align="center">
+
+### 🏜️ Sahara & Sea
+*A taste-matched guide to Algeria*
+
+🎓 Recommender Systems course project · Built with Django + from-scratch collaborative filtering
+<br>
+📸 Photos via [Wikimedia Commons](https://commons.wikimedia.org/) (CC-licensed)
+
+</div>
