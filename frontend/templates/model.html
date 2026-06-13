@@ -34,6 +34,7 @@
         <div><dt>MAE</dt><dd>{{ a.mae }}</dd></div>
         <div><dt>P@5</dt><dd>{{ a.precision_at_5 }}</dd></div>
         <div><dt>R@5</dt><dd>{{ a.recall_at_5 }}</dd></div>
+        <div><dt>NDCG@5</dt><dd>{{ a.ndcg_at_5 }}</dd></div>
       </dl>
     </article>
     {% endfor %}
@@ -46,6 +47,8 @@
       the 5 recommended places are ones a visitor actually loved (higher is better). The
       non-personalized models can look strong on error metrics, but they show the same
       list to everyone — which is why the default is the best <em>personalized</em> model.
+      NDCG@5 (Normalized Discounted Cumulative Gain) additionally rewards algorithms that
+      rank liked places near the top of their list rather than burying them lower down.
     </p>
   </div>
 </section>

@@ -215,6 +215,35 @@ main { padding:0 clamp(1.2rem,5vw,4rem) 3rem; }
 
 @media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important;} .reveal{opacity:1; transform:none;} }
 
+/* ----------------------------- skeletons ----------------------------- */
+@keyframes shimmer { from{background-position:-600px 0} to{background-position:600px 0} }
+.skeleton-thumb, .skeleton-line {
+  background:linear-gradient(90deg, var(--line) 25%, var(--sand-deep) 50%, var(--line) 75%);
+  background-size:1200px 100%;
+  animation:shimmer 1.5s infinite linear;
+  border-radius:8px;
+}
+.skeleton-thumb { height:168px; border-radius:0; }
+.skeleton-line { height:11px; margin:10px 0; }
+.skeleton-line.tall { height:18px; }
+.skeleton-line.w30 { width:30%; }
+.skeleton-line.w50 { width:50%; }
+.skeleton-line.w70 { width:70%; }
+.skeleton-line.w90 { width:90%; }
+.skeleton-card .card-body { gap:.55rem; }
+.skeleton-rec-thumb { height:130px; border-radius:0; }
+.skeleton-rec-thumb, .skeleton-rec-line {
+  background:linear-gradient(90deg, var(--line) 25%, var(--sand-deep) 50%, var(--line) 75%);
+  background-size:1200px 100%;
+  animation:shimmer 1.5s infinite linear;
+  border-radius:8px;
+}
+.skeleton-rec-line { height:10px; margin:8px 0; }
+
+/* load-more button */
+.load-more-wrap { text-align:center; margin:2rem 0 .5rem; }
+.load-more-wrap .btn-ghost { min-width:200px; }
+
 /* --------------------------- responsive --------------------------- */
 @media (max-width:820px){
   .nav-toggle { display:flex; }
@@ -420,7 +449,7 @@ main { text-align: center; }
 .pill.live { background:var(--teal); color:#fff; }
 .algo-tile .fam { font-size:.7rem; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft); }
 .algo-tile .blurb { font-size:.86rem; color:var(--ink-soft); line-height:1.5; flex:1; }
-.algo-tile dl { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; margin-top:.3rem;
+.algo-tile dl { display:grid; grid-template-columns:repeat(5,1fr); gap:.4rem; margin-top:.3rem;
   border-top:1px dashed var(--line); padding-top:.65rem; }
 .algo-tile dt { font-size:.62rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
 .algo-tile dd { font-family:"Fraunces",serif; font-weight:600; font-size:.98rem; color:var(--terracotta-dk); }

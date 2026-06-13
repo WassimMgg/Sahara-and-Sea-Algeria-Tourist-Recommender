@@ -131,6 +131,32 @@ async function rateAttraction(att, value, card, starsEl, btn) {
   if (typeof renderRecommendations === "function") renderRecommendations(data.recommendations);
 }
 
+/* ---------------------- skeleton card builders -------------------- */
+function renderSkeletons(n) {
+  return Array.from({ length: n }, () => `
+    <div class="card skeleton-card">
+      <div class="thumb skeleton-thumb"></div>
+      <div class="card-body">
+        <div class="skeleton-line w50"></div>
+        <div class="skeleton-line w90 tall"></div>
+        <div class="skeleton-line w70"></div>
+        <div class="skeleton-line w30"></div>
+      </div>
+    </div>`).join("");
+}
+
+function renderRecSkeletons(n) {
+  return Array.from({ length: n }, () => `
+    <article class="rec-card">
+      <div class="rec-thumb skeleton-rec-thumb"></div>
+      <div class="rec-body">
+        <div class="skeleton-rec-line w90 tall"></div>
+        <div class="skeleton-rec-line w60"></div>
+        <div class="skeleton-rec-line w40"></div>
+      </div>
+    </article>`).join("");
+}
+
 /* ------------------- recommendation card builder ----------------- */
 function buildRecCard(r, idx) {
   const el = document.createElement("article");

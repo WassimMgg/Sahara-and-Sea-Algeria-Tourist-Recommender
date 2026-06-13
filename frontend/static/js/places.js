@@ -1,19 +1,32 @@
 /* places.js — full catalogue with type filter, star rating,
-   and a live "Your recommendations" strip that refreshes on rating. */
+   live recommendations strip, skeleton loading states, and pagination. */
 
-const state = { type: "all", ratings: {} };
+const state = {
+  type: "all",
+  ratings: {},
+  limit: 20,
+  offset: 0,
+  total: 0,
+};
 
 function renderRecommendations(recs) {
   const track = document.getElementById("recTrack");
   if (!track) return;
   track.innerHTML = "";
   recs.forEach((r, i) => track.appendChild(buildRecCard(r, i)));
+  initReveal();
 }
 
 async function loadRecommendations() {
   if (!window.IS_AUTHENTICATED) return;
-  const { recommendations } = await getJSON("/api/recommendations/?n=6");
-  renderRecommendations(recommendations);
+  const track = document.getElementById("recTrack");
+  if (track) track.innerHTML = renderRecSkeletons(4);
+  try {
+    const { recommendations } = await getJSON("/api/recommendations/?n=6");
+    renderRecommendations(recommendations);
+  } catch (_) {
+    if (track) track.innerHTML = "";
+  }
 }
 
 async function loadMyRatings() {
@@ -23,10 +36,18 @@ async function loadMyRatings() {
   for (const [aid, r] of Object.entries(ratings)) state.ratings[parseInt(aid, 10)] = r;
 }
 
-async function loadGrid() {
-  const { attractions } = await getJSON(`/api/attractions/?type=${encodeURIComponent(state.type)}`);
+async function loadGrid(append = false) {
   const grid = document.getElementById("grid");
-  grid.innerHTML = "";
+  if (!append) {
+    state.offset = 0;
+    grid.innerHTML = renderSkeletons(state.limit);
+  }
+
+  const url = `/api/attractions/?type=${encodeURIComponent(state.type)}&limit=${state.limit}&offset=${state.offset}`;
+  const { attractions, total } = await getJSON(url);
+  state.total = total;
+
+  if (!append) grid.innerHTML = "";
   attractions.forEach(att => {
     grid.appendChild(buildAttractionCard(att, {
       rateable: true,
@@ -34,6 +55,19 @@ async function loadGrid() {
     }));
   });
   initReveal();
+
+  // update "Load more" button
+  const btn = document.getElementById("loadMoreBtn");
+  if (btn) {
+    const shown = state.offset + attractions.length;
+    const remaining = total - shown;
+    if (remaining > 0) {
+      btn.textContent = `Load more (${remaining} remaining)`;
+      btn.style.display = "";
+    } else {
+      btn.style.display = "none";
+    }
+  }
 }
 
 function initFilter() {
@@ -44,6 +78,15 @@ function initFilter() {
     btn.classList.add("active");
     state.type = btn.dataset.type;
     loadGrid();
+  });
+}
+
+function initLoadMore() {
+  const btn = document.getElementById("loadMoreBtn");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    state.offset += state.limit;
+    loadGrid(true);
   });
 }
 
@@ -63,6 +106,7 @@ function applyTypeFromURL() {
 
 (async function init() {
   initFilter();
+  initLoadMore();
   applyTypeFromURL();
   await loadMyRatings();
   await Promise.all([loadGrid(), loadRecommendations()]);

@@ -11,6 +11,10 @@ the admin panel (Recommender page) with no restart:
     set_active_algorithm(key)   -> switch it (validates the key)
     available_algorithms()      -> metadata + CV metrics + which is active
     reload_models()             -> drop the cache (e.g. after retraining)
+
+Recommendations are cached per-user (5-minute TTL) and invalidated when the
+user submits a new rating.  The returned list is also diversity-filtered so
+at most 2 items of the same place_type appear in any single recommendation set.
 """
 
 import sys
@@ -18,6 +22,7 @@ import json
 import pickle
 import threading
 from django.conf import settings
+from django.core.cache import cache
 
 from .models import Attraction, Rating, RecommenderSetting
 
@@ -25,6 +30,8 @@ from .models import Attraction, Rating, RecommenderSetting
 sys.path.insert(0, str(settings.ML_DIR))
 
 ACTIVE_KEY_SETTING = "active_algorithm"
+_REC_TTL = 300   # seconds to keep cached recommendations
+_MAX_PER_TYPE = 2  # diversity cap: max items of the same place_type
 
 _bundle = None
 _metrics = None
@@ -88,17 +95,18 @@ def available_algorithms():
     out = []
     for key, res in metrics["results"].items():
         out.append({
-            "key": key,
-            "label": res["label"],
-            "family": res["family"],
-            "personalized": res["personalized"],
-            "blurb": res["blurb"],
-            "rmse": round(res["rmse"], 4),
-            "mae": round(res["mae"], 4),
+            "key":            key,
+            "label":          res["label"],
+            "family":         res["family"],
+            "personalized":   res["personalized"],
+            "blurb":          res["blurb"],
+            "rmse":           round(res["rmse"], 4),
+            "mae":            round(res["mae"], 4),
             "precision_at_5": round(res["precision_at_5"], 3),
-            "recall_at_5": round(res["recall_at_5"], 3),
-            "active": key == active,
-            "default": key == metrics["default"],
+            "recall_at_5":    round(res["recall_at_5"], 3),
+            "ndcg_at_5":      round(res.get("ndcg_at_5", 0.0), 3),
+            "active":         key == active,
+            "default":        key == metrics["default"],
         })
     return out
 
@@ -160,34 +168,88 @@ def favourite_type(ratings_map):
 
 
 # --------------------------------------------------------------------------- #
+# diversity post-processing
+# --------------------------------------------------------------------------- #
+def _diversify(recs, top_n):
+    """Return at most top_n items with no more than _MAX_PER_TYPE of the same type."""
+    counts = {}
+    out = []
+    for rec in recs:
+        t = rec.get("place_type", "")
+        if counts.get(t, 0) < _MAX_PER_TYPE:
+            out.append(rec)
+            counts[t] = counts.get(t, 0) + 1
+        if len(out) == top_n:
+            break
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# recommendation cache helpers
+# --------------------------------------------------------------------------- #
+def _rec_cache_key(user_id, top_n):
+    return f"recs:u{user_id}:n{top_n}"
+
+
+def invalidate_user_cache(user):
+    """Bust all cached recommendation sets for this user."""
+    if user and user.is_authenticated:
+        for n in (5, 6, 10, 12):
+            cache.delete(_rec_cache_key(user.id, n))
+
+
+# --------------------------------------------------------------------------- #
 # the recommendation entry point used by the API
 # --------------------------------------------------------------------------- #
 def recommend_for(user, top_n=5):
-    model, key = get_active_model()
+    if user and user.is_authenticated:
+        key = _rec_cache_key(user.id, top_n)
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
+
+    result = _compute_recommendations(user, top_n)
+
+    if user and user.is_authenticated:
+        cache.set(_rec_cache_key(user.id, top_n), result, _REC_TTL)
+    return result
+
+
+def _compute_recommendations(user, top_n=5):
+    model, _ = get_active_model()
     ratings_map = account_ratings(user)
     attractions = {a.id: a for a in Attraction.objects.all()}
 
     if not ratings_map:
         # cold start -> non-personalized crowd favourites
         order, avg = popularity_ranking()
-        return [attraction_dict(attractions[aid], avg[aid], "Popular with visitors")
-                for aid in order[:top_n] if aid in attractions]
+        recs = [attraction_dict(attractions[aid], avg[aid], "Popular with visitors")
+                for aid in order if aid in attractions]
+        return _diversify(recs, top_n)
 
     fav = favourite_type(ratings_map)
+    model_name = getattr(model, "name", "").lower()
     out = []
-    for aid, score in model.recommend(ratings_map, top_n=top_n):
+    # request 3× candidates so diversity filtering still yields top_n results
+    for aid, score in model.recommend(ratings_map, top_n=top_n * 3):
         aid = int(aid)
         if aid not in attractions:
             continue
         att = attractions[aid]
-        if not getattr(model, "i_idx", None) and not getattr(model, "item_score", None):
-            reason = "Recommended for you"
+        if "content" in model_name:
+            reason = "Similar to places you've enjoyed"
+        elif "hybrid" in model_name:
+            reason = (f"Matches your taste for {fav}"
+                      if fav and att.place_type == fav
+                      else "Personalised blend of taste and similarity")
+        elif getattr(model, "item_score", None):  # non-personalized
+            reason = "Popular with visitors"
         elif fav and att.place_type == fav:
             reason = f"Matches your taste for {fav}"
         else:
             reason = "Visitors with similar taste enjoyed this"
         out.append(attraction_dict(att, score, reason))
-    return out
+    return _diversify(out, top_n)
 
 
 def place_types():

@@ -24,6 +24,7 @@ Every model implements the same interface:
     recommend(ratings, top_n=5)               -> [(item_id, score), ...]
 """
 
+import re
 import numpy as np
 import pandas as pd
 
@@ -97,7 +98,7 @@ class MeanRecommender:
     """
     name = "Mean ratings (non-personalized)"
 
-    def fit(self, df):
+    def fit(self, df, attractions_df=None):
         self.global_mean = float(df["rating"].mean())
         g = df.groupby("attraction_id")["rating"].agg(["sum", "count"])
         self.item_score = {
@@ -128,7 +129,7 @@ class BaselineModel:
     """r̂(u,i) = μ + b_u + b_i   (biases = damped deviations from the mean)."""
     name = "Bias baseline (μ + user bias + item bias)"
 
-    def fit(self, df, damping=10):
+    def fit(self, df, attractions_df=None, damping=10):
         self.mu = float(df["rating"].mean())
         ig = df.groupby("attraction_id")["rating"]
         self.b_i = {int(i): (s - c * self.mu) / (c + damping)
@@ -177,7 +178,7 @@ class ItemItemCF:
         self.similarity = similarity
         self.name = f"Item-item CF ({similarity})"
 
-    def fit(self, df):
+    def fit(self, df, attractions_df=None):
         M, self.users, self.items, self.u_idx, self.i_idx = build_matrix(df)
         self.item_mean = np.nanmean(M, axis=0)
         # adjusted-cosine variant: center each USER's row first for cosine
@@ -245,7 +246,7 @@ class UserUserCF:
         self.similarity = similarity
         self.name = f"User-user CF ({similarity})"
 
-    def fit(self, df):
+    def fit(self, df, attractions_df=None):
         M, self.users, self.items, self.u_idx, self.i_idx = build_matrix(df)
         self.M = M
         self.user_mean = np.nanmean(M, axis=1)
@@ -333,7 +334,7 @@ class MatrixFactorization:
     def __init__(self, n_factors=8, n_epochs=60, lr=0.01, reg=0.05, seed=42):
         self.f, self.epochs, self.lr, self.reg, self.seed = n_factors, n_epochs, lr, reg, seed
 
-    def fit(self, df):
+    def fit(self, df, attractions_df=None):
         rng = np.random.default_rng(self.seed)
         self.users = np.sort(df["user_id"].unique())
         self.items = np.sort(df["attraction_id"].unique())
@@ -401,6 +402,238 @@ class MatrixFactorization:
 
 
 # ============================================================================ #
+#  5. Content-based filtering (TF-IDF, from scratch)
+# ============================================================================ #
+class ContentBasedRecommender:
+    """
+    TF-IDF content-based filtering.
+
+    Text document per attraction = name + category + description.
+    Similarity between items = cosine of their TF-IDF vectors.
+    score(unrated_item) = Σ sim(item, rated_i) * rating_i  /  Σ |sim|
+    The result is on the same scale as user ratings, so it blends
+    directly with CF scores.
+    """
+    name = "Content-based (TF-IDF)"
+
+    _STOPWORDS = frozenset({
+        "a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for",
+        "is", "its", "with", "that", "this", "as", "by", "from", "was", "are",
+        "be", "it", "also", "has", "have", "been", "were", "their", "they",
+        "into", "more", "which", "not", "but", "so", "if", "one", "two",
+    })
+
+    def fit(self, df, attractions_df=None):
+        self.global_mean = float(df["rating"].mean())
+        self.items = np.array(sorted(df["attraction_id"].unique()))
+        self._ready = False
+        if attractions_df is not None and not attractions_df.empty:
+            self._build_tfidf(attractions_df)
+            self._ready = True
+        return self
+
+    def _tokenize(self, text):
+        return [w for w in re.findall(r"\b[a-z]{2,}\b", text.lower())
+                if w not in self._STOPWORDS]
+
+    def _build_tfidf(self, attractions_df):
+        item_ids, docs = [], []
+        for _, row in attractions_df.iterrows():
+            item_ids.append(int(row["attraction_id"]))
+            text = (f"{row.get('name', '')} {row.get('category', '')} "
+                    f"{row.get('description', '')}")
+            docs.append(self._tokenize(text))
+
+        vocab = sorted({w for doc in docs for w in doc})
+        vocab_idx = {w: k for k, w in enumerate(vocab)}
+        nI, nT = len(item_ids), len(vocab)
+
+        tf = np.zeros((nI, nT))
+        for idx, tokens in enumerate(docs):
+            if not tokens:
+                continue
+            for w in tokens:
+                tf[idx, vocab_idx[w]] += 1
+            tf[idx] /= len(tokens)
+
+        df_cnt = (tf > 0).sum(axis=0)
+        idf = np.log((nI + 1) / (df_cnt + 1)) + 1.0
+        tfidf = tf * idf
+
+        norms = np.linalg.norm(tfidf, axis=1, keepdims=True)
+        norms[norms == 0] = 1e-12
+        tfidf /= norms
+
+        self._item_ids = item_ids
+        self._item_idx = {iid: k for k, iid in enumerate(item_ids)}
+        self._tfidf = tfidf
+
+    def _cosine(self, i, j):
+        ii = self._item_idx.get(int(i))
+        jj = self._item_idx.get(int(j))
+        if ii is None or jj is None:
+            return 0.0
+        return float(self._tfidf[ii] @ self._tfidf[jj])
+
+    def predict_from_ratings(self, item_id, ratings):
+        if not self._ready or not ratings:
+            return self.global_mean
+        sims = np.array([self._cosine(item_id, i) for i in ratings])
+        vals = np.array(list(ratings.values()), dtype=float)
+        denom = np.abs(sims).sum()
+        if denom < 1e-12:
+            return self.global_mean
+        return float(np.clip(sims @ vals / denom, 1.0, 5.0))
+
+    def predict(self, user_id, item_id):
+        return self.global_mean
+
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        scored = [(int(i), self.predict_from_ratings(i, ratings))
+                  for i in cands if int(i) not in ratings]
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
+
+
+# ============================================================================ #
+#  6. Matrix Factorization via Alternating Least Squares (ALS)
+# ============================================================================ #
+class ALSRecommender:
+    """
+    Matrix Factorization via Alternating Least Squares.
+
+    More numerically stable than SGD on sparse data: each sub-problem is a
+    ridge-regression with a closed-form solution, so no learning rate needed.
+    r̂(u,i) = μ + p_u · q_i.  New users are folded in with ridge regression.
+    """
+    name = "Matrix factorization (ALS)"
+
+    def __init__(self, n_factors=8, n_iters=20, reg=0.1, seed=42):
+        self.f, self.n_iters, self.reg, self.seed = n_factors, n_iters, reg, seed
+
+    def fit(self, df, attractions_df=None):
+        rng = np.random.default_rng(self.seed)
+        self.users = np.sort(df["user_id"].unique())
+        self.items = np.sort(df["attraction_id"].unique())
+        self.u_idx = {u: k for k, u in enumerate(self.users)}
+        self.i_idx = {i: k for k, i in enumerate(self.items)}
+        nU, nI = len(self.users), len(self.items)
+        self.mu = float(df["rating"].mean())
+
+        R = np.zeros((nU, nI))
+        mask = np.zeros((nU, nI), dtype=bool)
+        for u, i, r in zip(df["user_id"].map(self.u_idx),
+                           df["attraction_id"].map(self.i_idx),
+                           df["rating"].astype(float)):
+            R[int(u), int(i)] = r - self.mu
+            mask[int(u), int(i)] = True
+
+        P = rng.normal(0, 0.1, (nU, self.f))
+        Q = rng.normal(0, 0.1, (nI, self.f))
+        reg_I = self.reg * np.eye(self.f)
+
+        for _ in range(self.n_iters):
+            for u in range(nU):
+                idx = np.where(mask[u])[0]
+                if len(idx) == 0:
+                    continue
+                Qi = Q[idx]
+                P[u] = np.linalg.solve(Qi.T @ Qi + reg_I, Qi.T @ R[u, idx])
+            for i in range(nI):
+                idx = np.where(mask[:, i])[0]
+                if len(idx) == 0:
+                    continue
+                Pu = P[idx]
+                Q[i] = np.linalg.solve(Pu.T @ Pu + reg_I, Pu.T @ R[idx, i])
+
+        self.P, self.Q = P, Q
+        return self
+
+    def predict(self, user_id, item_id):
+        u = self.u_idx.get(int(user_id))
+        i = self.i_idx.get(int(item_id))
+        if u is None or i is None:
+            return self.mu
+        return float(self.mu + self.P[u] @ self.Q[i])
+
+    def _fold_in(self, ratings):
+        idx, y = [], []
+        for i, r in ratings.items():
+            k = self.i_idx.get(int(i))
+            if k is not None:
+                idx.append(k)
+                y.append(r - self.mu)
+        if not idx:
+            return np.zeros(self.f)
+        Qi = self.Q[idx]
+        y = np.array(y)
+        return np.linalg.solve(Qi.T @ Qi + self.reg * np.eye(self.f), Qi.T @ y)
+
+    def predict_from_ratings(self, item_id, ratings):
+        k = self.i_idx.get(int(item_id))
+        if k is None:
+            return self.mu
+        return float(np.clip(self.mu + self._fold_in(ratings) @ self.Q[k], 1.0, 5.0))
+
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        p_u = self._fold_in(ratings)
+        scored = [(int(i), float(self.mu + p_u @ self.Q[self.i_idx[int(i)]]))
+                  for i in cands
+                  if int(i) not in ratings and int(i) in self.i_idx]
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
+
+
+# ============================================================================ #
+#  7. Hybrid recommender (CF + content-based, weighted blend)
+# ============================================================================ #
+class HybridRecommender:
+    """
+    Weighted blend of a CF model and the content-based model.
+
+    score = alpha * CF_score + (1-alpha) * CB_score
+
+    Both constituent models produce scores on the [1,5] rating scale, so no
+    normalisation is needed before blending.  The CF component handles taste
+    matching from neighbour behaviour; the CB component adds a signal from
+    attraction text similarity, helping when the neighbour graph is sparse.
+    """
+
+    def __init__(self, cf_cls, cf_kwargs=None, alpha=0.65):
+        self.cf_cls = cf_cls
+        self.cf_kwargs = cf_kwargs or {}
+        self.alpha = alpha
+        _cf_tmp = cf_cls(**self.cf_kwargs)
+        self.name = f"Hybrid ({_cf_tmp.name} + content, α={alpha})"
+
+    def fit(self, df, attractions_df=None):
+        self.cf = self.cf_cls(**self.cf_kwargs).fit(df)
+        self.cb = ContentBasedRecommender().fit(df, attractions_df)
+        self.items = self.cf.items
+        self.i_idx = getattr(self.cf, "i_idx", {})
+        self.global_mean = float(getattr(self.cf, "global_mean",
+                                         df["rating"].mean()))
+        return self
+
+    def predict_from_ratings(self, item_id, ratings):
+        cf = self.cf.predict_from_ratings(item_id, ratings)
+        cb = self.cb.predict_from_ratings(item_id, ratings)
+        return float(np.clip(self.alpha * cf + (1 - self.alpha) * cb, 1.0, 5.0))
+
+    def predict(self, user_id, item_id):
+        return self.cf.predict(user_id, item_id)
+
+    def recommend(self, ratings, top_n=5, candidate_items=None):
+        cands = candidate_items if candidate_items is not None else self.items
+        scored = [(int(i), self.predict_from_ratings(i, ratings))
+                  for i in cands if int(i) not in ratings]
+        scored.sort(key=lambda t: t[1], reverse=True)
+        return scored[:top_n]
+
+
+# ============================================================================ #
 #  registry - every algorithm the app can serve
 # ============================================================================ #
 ALL_MODELS = {
@@ -428,8 +661,21 @@ ALL_MODELS = {
                         {"label": "Item-item CF · Pearson", "family": "Item-item CF",
                          "personalized": True,
                          "blurb": "Item-item neighbours matched with Pearson correlation on co-rated entries."}),
-    "mf":              (MatrixFactorization, {},
-                        {"label": "Matrix factorization",   "family": "Latent factors (bonus)",
+    "mf_sgd":          (MatrixFactorization, {},
+                        {"label": "Matrix factorization (SGD)", "family": "Latent factors",
                          "personalized": True,
                          "blurb": "Learns hidden taste dimensions with SGD; new users are folded in with ridge regression."}),
+    "mf_als":          (ALSRecommender, {},
+                        {"label": "Matrix factorization (ALS)", "family": "Latent factors",
+                         "personalized": True,
+                         "blurb": "ALS solves for user/item factors via ridge regression, more numerically stable than SGD on sparse data."}),
+    "content_based":   (ContentBasedRecommender, {},
+                        {"label": "Content-based (TF-IDF)",    "family": "Content-based",
+                         "personalized": True,
+                         "blurb": "Scores each place by its text similarity (name, category, description) to the places you rated highly."}),
+    "hybrid":          (HybridRecommender,
+                        {"cf_cls": ItemItemCF, "cf_kwargs": {"similarity": "cosine"}, "alpha": 0.65},
+                        {"label": "Hybrid (Item-item + content)", "family": "Hybrid",
+                         "personalized": True,
+                         "blurb": "Blends item-item CF (65%) with TF-IDF content similarity (35%) for robust recommendations even with few ratings."}),
 }

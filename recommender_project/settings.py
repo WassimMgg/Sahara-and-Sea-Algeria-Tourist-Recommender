@@ -63,6 +63,13 @@ STATICFILES_DIRS = [BASE_DIR / "frontend" / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "tourist-recommender",
+    }
+}
+
 # Auth redirects (public site)
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"

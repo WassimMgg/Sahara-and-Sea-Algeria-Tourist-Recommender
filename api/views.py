@@ -136,15 +136,30 @@ def logout_view(request):
 def api_attractions(request):
     q = request.GET.get("q", "").strip().lower()
     place_type = request.GET.get("type", "").strip()
+    try:
+        limit = min(max(int(request.GET.get("limit", 50)), 1), 100)
+        offset = max(int(request.GET.get("offset", 0)), 0)
+    except ValueError:
+        limit, offset = 50, 0
+
     qs = Attraction.objects.all()
     if place_type and place_type.lower() != "all":
         qs = qs.filter(place_type=place_type)
+
     items = []
     for att in qs:
         if q and q not in (att.name + att.city + att.region + att.description).lower():
             continue
         items.append(services.attraction_dict(att))
-    return JsonResponse({"attractions": items, "types": services.place_types()})
+
+    total = len(items)
+    return JsonResponse({
+        "attractions": items[offset:offset + limit],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "types": services.place_types(),
+    })
 
 
 @require_GET
@@ -177,6 +192,7 @@ def api_rate(request):
         account=request.user, attraction_id=attraction_id,
         defaults={"rating": rating},
     )
+    services.invalidate_user_cache(request.user)
     recs = services.recommend_for(request.user, top_n=int(payload.get("n", 6)))
     return JsonResponse({"status": "ok", "recommendations": recs})
 
